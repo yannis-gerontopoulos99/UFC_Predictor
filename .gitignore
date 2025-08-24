@@ -2,3 +2,4 @@
 myenv
 Local.session.sql
 test.py
+.env
