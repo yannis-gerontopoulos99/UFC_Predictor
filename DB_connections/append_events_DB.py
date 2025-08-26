@@ -19,14 +19,20 @@ cursor = conn.cursor()
 
 insert_query = """
     INSERT INTO events (
-        event_date, event_name, fighter_blue, fighter_red, knockdowns_blue, knockdowns_red,
-        sig_attempts_blue, sig_attempts_red, sig_strikes_blue, sig_strikes_red, total_strikes_attempts_blue,
-        total_strikes_attempts_red, total_strikes_blue, total_strikes_red, sub_attempts_blue, sub_attempts_red,
-        takedowns_blue, takedowns_red, takedown_attempts_blue, takedown_attempts_red, control_time_blue, control_time_red, round, time, weight_class,
-        win_method, winner
+        'event_date','event_name','fighter_blue','fighter_red','round','time','weight_class','win_method','winner',
+        'knockdowns_blue','knockdowns_red','sig_attempts_blue','sig_attempts_red','sig_strikes_blue','sig_strikes_red',
+        'total_strikes_attempts_blue','total_strikes_attempts_red','total_strikes_blue','total_strikes_red','sub_attempts_blue',
+        'sub_attempts_red','takedowns_blue','takedowns_red','takedown_attempts_blue','takedown_attempts_red','control_time_blue',
+        'control_time_red','head_strikes_red','head_strikes_blue','head_attempts_red','head_attempts_blue','body_strikes_red',
+        'body_strikes_blue','body_attempts_red','body_attempts_blue','leg_strikes_red','leg_strikes_blue','leg_attempts_red',
+        'leg_attempts_blue','distance_red','distance_blue','distance_attempts_red','distance_attempts_blue','clinch_strikes_red',
+        'clinch_strikes_blue','clinch_attempts_red','clinch_attempts_blue','ground_strikes_red','ground_strikes_blue',
+        'ground_attempts_red','ground_attempts_blue'
     ) VALUES (
         %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
     )
 """
 

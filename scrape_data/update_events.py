@@ -19,6 +19,12 @@ class BoutScraperItem(Item):
     event_date = Field()
     fighter_red = Field()
     fighter_blue = Field()
+    weight_class = Field()
+    win_method = Field()
+    #win_method_finish = Field()
+    round = Field()
+    time = Field()
+    winner = Field()
     knockdowns_red = Field()
     knockdowns_blue = Field()
     sig_strikes_red = Field()
@@ -37,12 +43,30 @@ class BoutScraperItem(Item):
     sub_attempts_blue = Field()
     control_time_red = Field()
     control_time_blue = Field()
-    weight_class = Field()
-    win_method = Field()
-    #win_method_finish = Field()
-    round = Field()
-    time = Field()
-    winner = Field()
+    head_strikes_red = Field()
+    head_strikes_blue = Field()
+    head_attempts_red = Field()
+    head_attempts_blue = Field()
+    body_strikes_red = Field()
+    body_strikes_blue = Field()
+    body_attempts_red = Field()
+    body_attempts_blue = Field()
+    leg_strikes_red = Field()
+    leg_strikes_blue = Field()
+    leg_attempts_red = Field()
+    leg_attempts_blue = Field()
+    distance_red = Field()
+    distance_blue = Field()
+    distance_attempts_red = Field()
+    distance_attempts_blue = Field()
+    clinch_strikes_red = Field()
+    clinch_strikes_blue = Field()
+    clinch_attempts_red = Field()
+    clinch_attempts_blue = Field()
+    ground_strikes_red = Field()
+    ground_strikes_blue = Field()
+    ground_attempts_red = Field()
+    ground_attempts_blue = Field()
 
 # Scraping method
 class Bouts(scrapy.Spider):
@@ -146,10 +170,20 @@ class Bouts(scrapy.Spider):
             item['fighter_blue'] = fighter_names[1].strip()
         
         # Helper function to extract red/blue fighter stats from a column
-        def extract_pair(col_index, split=False):
+        def extract_pair(col_index, split=False, table_index=0):
+            """
+            Extract red/blue stats from a given column index.
+            
+            table_index: which stats table to use (0 = first table, 1 = second table)
+            """
             try:
+                tables = response.css('tbody.b-fight-details__table-body')
+                if len(tables) <= table_index:
+                    return (None,) * (4 if split else 2)
+
+                cols = tables[table_index].css('td.b-fight-details__table-col')
                 vals = cols[col_index].css('p::text').getall()
-                # Split values 'X of Y' format
+
                 if split:
                     red = vals[0].strip().split(' of ')
                     blue = vals[1].strip().split(' of ')
@@ -159,6 +193,7 @@ class Bouts(scrapy.Spider):
             except:
                 return (None,) * (4 if split else 2)
 
+        # Table 0
         # Knockdowns (col 1)
         item['knockdowns_red'], item['knockdowns_blue'] = extract_pair(1)
 
@@ -188,6 +223,49 @@ class Bouts(scrapy.Spider):
 
         # Control time (col 9)
         ctrl_red, ctrl_blue = extract_pair(9)
+
+        # Table 3
+        # Head strikes (col 3)
+        hr, ha_r, hb, ha_b = extract_pair(3, split=True, table_index=2)
+        item['head_strikes_red'] = hr
+        item['head_attempts_red'] = ha_r
+        item['head_strikes_blue'] = hb
+        item['head_attempts_blue'] = ha_b
+
+        # Body strikes (col 4)
+        br, ba_r, bb, ba_b = extract_pair(4, split=True, table_index=2)
+        item['body_strikes_red'] = br
+        item['body_attempts_red'] = ba_r
+        item['body_strikes_blue'] = bb
+        item['body_attempts_blue'] = ba_b
+
+        # Leg strikes (col 5)
+        lr, la_r, lb, la_b = extract_pair(5, split=True, table_index=2)
+        item['leg_strikes_red'] = lr
+        item['leg_attempts_red'] = la_r
+        item['leg_strikes_blue'] = lb
+        item['leg_attempts_blue'] = la_b
+
+        # Distance strikes (col 6)
+        dr, da_r, db, da_b = extract_pair(6, split=True, table_index=2)
+        item['distance_red'] = dr
+        item['distance_attempts_red'] = da_r
+        item['distance_blue'] = db
+        item['distance_attempts_blue'] = da_b
+
+        # Clinch strikes (col 7)
+        cr, ca_r, cb, ca_b = extract_pair(7, split=True, table_index=2)
+        item['clinch_strikes_red'] = cr
+        item['clinch_attempts_red'] = ca_r
+        item['clinch_strikes_blue'] = cb
+        item['clinch_attempts_blue'] = ca_b
+
+        # Ground strikes (col 8)
+        gr, ga_r, gb, ga_b = extract_pair(8, split=True, table_index=2)
+        item['ground_strikes_red'] = gr
+        item['ground_attempts_red'] = ga_r
+        item['ground_strikes_blue'] = gb
+        item['ground_attempts_blue'] = ga_b
 
         # Convert MM:SS format to seconds
         def mmss_to_seconds(time_str):
@@ -281,11 +359,15 @@ if __name__ == "__main__":
     print(f"Total scraping and processing time: {end_time - start_time:.2f} seconds.")
 
     correct_order = [
-        'event_date','event_name','fighter_blue','fighter_red','knockdowns_blue','knockdowns_red',
-        'sig_attempts_blue','sig_attempts_red','sig_strikes_blue','sig_strikes_red','total_strikes_attempts_blue',
-        'total_strikes_attempts_red','total_strikes_blue','total_strikes_red','sub_attempts_blue','sub_attempts_red',
-        'takedowns_blue','takedowns_red', 'takedown_attempts_blue', 'takedown_attempts_red', 'control_time_blue',
-        'control_time_red','round','time','weight_class','win_method','winner']
+        'event_date','event_name','fighter_blue','fighter_red','round','time','weight_class','win_method','winner',
+        'knockdowns_blue','knockdowns_red','sig_attempts_blue','sig_attempts_red','sig_strikes_blue','sig_strikes_red',
+        'total_strikes_attempts_blue','total_strikes_attempts_red','total_strikes_blue','total_strikes_red','sub_attempts_blue',
+        'sub_attempts_red','takedowns_blue','takedowns_red','takedown_attempts_blue','takedown_attempts_red','control_time_blue',
+        'control_time_red','head_strikes_red','head_strikes_blue','head_attempts_red','head_attempts_blue','body_strikes_red',
+        'body_strikes_blue','body_attempts_red','body_attempts_blue','leg_strikes_red','leg_strikes_blue','leg_attempts_red',
+        'leg_attempts_blue','distance_red','distance_blue','distance_attempts_red','distance_attempts_blue','clinch_strikes_red',
+        'clinch_strikes_blue','clinch_attempts_red','clinch_attempts_blue','ground_strikes_red','ground_strikes_blue',
+        'ground_attempts_red','ground_attempts_blue']
     
     # Load the CSV into a DataFrame
     temp_df = pd.read_csv(temp_file)
@@ -314,11 +396,15 @@ if __name__ == "__main__":
             combined_df = pd.concat([existing_df, temp_filtered_df], ignore_index=True)
             combined_df.drop_duplicates(inplace=True)
             combined_df = combined_df.sort_values(by='event_date', ascending=True)
-            combined_df = combined_df.reindex(columns=['event_date','event_name','fighter_blue','fighter_red','knockdowns_blue','knockdowns_red',
-                'sig_attempts_blue','sig_attempts_red','sig_strikes_blue','sig_strikes_red','total_strikes_attempts_blue',
-                'total_strikes_attempts_red','total_strikes_blue','total_strikes_red','sub_attempts_blue','sub_attempts_red',
-                'takedowns_blue','takedowns_red', 'takedown_attempts_blue', 'takedown_attempts_red', 'control_time_blue','control_time_red','round','time','weight_class',
-                'win_method','winner'])
+            combined_df = combined_df.reindex(columns=['event_date','event_name','fighter_blue','fighter_red','round','time','weight_class',
+            'win_method','winner','knockdowns_blue','knockdowns_red','sig_attempts_blue','sig_attempts_red','sig_strikes_blue','sig_strikes_red',
+            'total_strikes_attempts_blue','total_strikes_attempts_red','total_strikes_blue','total_strikes_red','sub_attempts_blue',
+            'sub_attempts_red','takedowns_blue','takedowns_red','takedown_attempts_blue','takedown_attempts_red','control_time_blue',
+            'control_time_red','head_strikes_red','head_strikes_blue','head_attempts_red','head_attempts_blue','body_strikes_red',
+            'body_strikes_blue','body_attempts_red','body_attempts_blue','leg_strikes_red','leg_strikes_blue','leg_attempts_red',
+            'leg_attempts_blue','distance_red','distance_blue','distance_attempts_red','distance_attempts_blue','clinch_strikes_red',
+            'clinch_strikes_blue','clinch_attempts_red','clinch_attempts_blue','ground_strikes_red','ground_strikes_blue',
+            'ground_attempts_red','ground_attempts_blue'])
             combined_df.to_csv(output_file, index=False)
             print(f"Updated data saved to: {os.path.abspath(output_file)}")
             print("Number of new fights added: ", len(temp_filtered_df))

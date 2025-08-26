@@ -9,5 +9,5 @@ seaborn
 scikit-learn
 xgboost
 torch
-#torch torchvision --index-url https://download.pytorch.org/whl/cu126
 python-dotenv
+#torch torchvision --index-url https://download.pytorch.org/whl/cu126
