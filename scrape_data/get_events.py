@@ -5,6 +5,7 @@ import time
 import scrapy
 from scrapy.crawler import CrawlerProcess
 from scrapy.item import Item, Field
+import uuid
 
 # Define fields to extract
 
@@ -19,6 +20,8 @@ class BoutScraperItem(Item):
     round = Field()
     time = Field()
     winner = Field()
+    stance_red = Field()
+    stance_blue = Field()
     knockdowns_red = Field()
     knockdowns_blue = Field()
     sig_strikes_red = Field()
@@ -113,63 +116,154 @@ class Bouts(scrapy.Spider):
             )
 
     def parse_fight(self, response):
-        # Create an item to hold extracted bout data
-        item = BoutScraperItem()
+        # Extract ALL data first (basic info + stats)
+        item = self.extract_all_fight_data(response)
+        
+        # Initialize temp_items at class level if it doesn't exist
+        if not hasattr(self, 'temp_items'):
+            self.temp_items = {}
+        
+        # Get fighter profile URLs for stances
+        fighter_anchors = response.css('tbody.b-fight-details__table-body tr.b-fight-details__table-row td.b-fight-details__table-col a')
+        if len(fighter_anchors) < 2:
+            self.logger.warning("Could not find fighter URLs")
+            yield item  # Yield without stances
+            return
+        
+        red_url = fighter_anchors[0].css('::attr(href)').get()
+        blue_url = fighter_anchors[1].css('::attr(href)').get()
+        
+        # If no URLs, yield item immediately
+        if not red_url and not blue_url:
+            yield item
+            return
+        
+        # Store item and fetch stances
+        fight_id = str(uuid.uuid4())
+        
+        # Initialize the fight data
+        self.temp_items[fight_id] = {
+            'item': item,
+            'stances_needed': 0,
+            'stances_collected': 0
+        }
+        
+        # Count how many stances we need and make requests
+        if red_url:
+            self.temp_items[fight_id]['stances_needed'] += 1
+            yield scrapy.Request(
+                url=red_url,
+                callback=self.parse_stance,
+                meta={'fight_id': fight_id, 'color': 'red'},
+                dont_filter=True  # Ensure request is made even if URL was visited
+            )
+        
+        if blue_url:
+            self.temp_items[fight_id]['stances_needed'] += 1
+            yield scrapy.Request(
+                url=blue_url,
+                callback=self.parse_stance,
+                meta={'fight_id': fight_id, 'color': 'blue'},
+                dont_filter=True  # Ensure request is made even if URL was visited
+            )
+        
+        # If no stance URLs found, yield immediately
+        if self.temp_items[fight_id]['stances_needed'] == 0:
+            yield item
+            del self.temp_items[fight_id]
 
-        # Set basic metadata from previous callbacks
+    def parse_stance(self, response):
+        """Extract stance and yield item when all stances collected"""
+        fight_id = response.meta['fight_id']
+        color = response.meta['color']
+        
+        # Initialize temp_items if it doesn't exist (defensive programming)
+        if not hasattr(self, 'temp_items'):
+            self.temp_items = {}
+            self.logger.error(f"temp_items not initialized for fight_id: {fight_id}")
+            return
+        
+        # Check if fight_id exists
+        if fight_id not in self.temp_items:
+            self.logger.error(f"Fight ID {fight_id} not found in temp_items")
+            return
+        
+        fight_data = self.temp_items[fight_id]
+        item = fight_data['item']
+        
+        # Extract stance
+        stance_text = response.xpath(
+            'normalize-space(string(//li[contains(@class,"b-list__box-list-item")][i[contains(text(),"STANCE:")]]))'
+        ).get()
+        
+        stance = stance_text.replace("STANCE:", "").strip() if stance_text else None
+        
+        # Set stance
+        item[f'stance_{color}'] = stance
+        
+        # Update counter
+        fight_data['stances_collected'] += 1
+        
+        self.logger.debug(f"Fight {fight_id}: collected {fight_data['stances_collected']}/{fight_data['stances_needed']} stances")
+        
+        # YIELD when all stances collected
+        if fight_data['stances_collected'] >= fight_data['stances_needed']:
+            self.logger.debug(f"Yielding complete item for fight: {item.get('fighter_red')} vs {item.get('fighter_blue')}")
+            yield item
+            del self.temp_items[fight_id]
+        
+    def extract_all_fight_data(self, response):
+        """Extract all fight data (basic info + stats) in one place"""
+        item = BoutScraperItem()
+        
+        # Basic metadata
         item['event_name'] = response.meta['event_name']
         item['event_date'] = response.meta['event_date']
 
-        # Extract win method
+        # Extract basic fight info
         item['win_method'] = response.css('.b-fight-details__text-item_first').xpath(
             ".//i[contains(text(), 'Method:')]/following-sibling::i/text()"
         ).get(default='').strip()
 
-        # Extract Round and Time
+        # Round and Time
         details = response.css('div.b-fight-details__content i.b-fight-details__text-item')
-
         for detail in details:
             label = detail.css('i.b-fight-details__label::text').get()
             if label:
                 label = label.strip()
                 if label == "Round:":
-                    round_text = detail.css('::text').re_first(r'\d+')
-                    item['round'] = round_text
+                    item['round'] = detail.css('::text').re_first(r'\d+')
                 elif label == "Time:":
                     time_text = detail.css('::text').re_first(r'\d+:\d+')
-                    minutes, seconds = map(int, time_text.split(':'))
-                    item['time'] = time_text
-                    item['time'] = int(datetime.timedelta(minutes=minutes, seconds=seconds).total_seconds())
+                    if time_text:
+                        minutes, seconds = map(int, time_text.split(':'))
+                        item['time'] = int(datetime.timedelta(minutes=minutes, seconds=seconds).total_seconds())
 
-        # Extract weight class (e.g., Lightweight Bout)
+        # Weight class
         weight_class = response.xpath("string(//i[@class='b-fight-details__fight-title'])").get()
         if weight_class:
-            # Clean up trailing " Bout"
             weight_class = weight_class.strip().replace(' Bout', '')
         item['weight_class'] = weight_class
         
-        # Get table row for fighter total stats
-        row = response.css('tbody.b-fight-details__table-body tr.b-fight-details__table-row')
-        if not row:
-            self.logger.warning("No stats row found.")
-            return
-        
-        # Get each column
-        cols = row.css('td.b-fight-details__table-col')
+        # Fighter names
+        fighter_anchors = response.css('tbody.b-fight-details__table-body tr.b-fight-details__table-row td.b-fight-details__table-col a')
+        if len(fighter_anchors) >= 2:
+            item['fighter_red'] = fighter_anchors[0].css('::text').get(default='').strip()
+            item['fighter_blue'] = fighter_anchors[1].css('::text').get(default='').strip()
 
-        # Fighter names (column 0)
-        fighter_names = cols[0].css('a::text').getall()
-        if len(fighter_names) >= 2:
-            item['fighter_red'] = fighter_names[0].strip()
-            item['fighter_blue'] = fighter_names[1].strip()
+        # Initialize stances
+        item['stance_red'] = None
+        item['stance_blue'] = None
+
+        # Extract all fight stats
+        self.extract_fight_stats(response, item)
         
-        # Helper function to extract red/blue fighter stats from a column
+        return item
+
+    def extract_fight_stats(self, response, item):
+        """Extract fight statistics"""
+        
         def extract_pair(col_index, split=False, table_index=0):
-            """
-            Extract red/blue stats from a given column index.
-            
-            table_index: which stats table to use (0 = first table, 1 = second table)
-            """
             try:
                 tables = response.css('tbody.b-fight-details__table-body')
                 if len(tables) <= table_index:
@@ -187,10 +281,19 @@ class Bouts(scrapy.Spider):
             except:
                 return (None,) * (4 if split else 2)
 
+        def mmss_to_seconds(time_str):
+            try:
+                if time_str and time_str.strip():
+                    minutes, seconds = map(int, time_str.strip().split(':'))
+                    return minutes * 60 + seconds
+                return 0
+            except Exception:
+                return 0
+
         # Table 0
         # Knockdowns (col 1)
         item['knockdowns_red'], item['knockdowns_blue'] = extract_pair(1)
-
+        
         # Significant strikes (col 2)
         sr, sa_r, sb, sa_b = extract_pair(2, split=True)
         item['sig_strikes_red'] = sr
@@ -214,9 +317,11 @@ class Bouts(scrapy.Spider):
 
         # Submission attempts (col 7)
         item['sub_attempts_red'], item['sub_attempts_blue'] = extract_pair(7)
-
+        
         # Control time (col 9)
         ctrl_red, ctrl_blue = extract_pair(9)
+        item['control_time_red'] = mmss_to_seconds(ctrl_red)
+        item['control_time_blue'] = mmss_to_seconds(ctrl_blue)
 
         # Table 3
         # Head strikes (col 3)
@@ -261,24 +366,10 @@ class Bouts(scrapy.Spider):
         item['ground_strikes_blue'] = gb
         item['ground_attempts_blue'] = ga_b
 
-        # Convert MM:SS format to seconds
-        def mmss_to_seconds(time_str):
-            try:
-                minutes, seconds = map(int, time_str.strip().split(':'))
-                return minutes * 60 + seconds
-            except Exception:
-                return 0  # Or None
-        
-        item['control_time_red'], item['control_time_blue'] = mmss_to_seconds(ctrl_red), mmss_to_seconds(ctrl_blue)
-
-        # Extract winner's name where 'W' is green
+        # Winner
         winner_block = response.css('div.b-fight-details__person:has(i.b-fight-details__person-status_style_green)')
         winner_name = winner_block.css('h3.b-fight-details__person-name a::text').get()
-        if winner_name:
-            item['winner'] = winner_name.strip()
-
-        # Return bout items
-        yield item
+        item['winner'] = winner_name.strip() if winner_name else None
 
 if __name__ == "__main__":
     
@@ -317,7 +408,7 @@ if __name__ == "__main__":
     df['event_date'] = pd.to_datetime(df['event_date'])
     df_sorted = df.sort_values(by='event_date', ascending=True)
     df_sorted = df_sorted.reindex(columns=['event_date','event_name','fighter_blue','fighter_red','round','time','weight_class',
-        'win_method','winner','knockdowns_blue','knockdowns_red','sig_attempts_blue','sig_attempts_red','sig_strikes_blue','sig_strikes_red',
+        'win_method','winner','stance_red', 'stance_blue','knockdowns_blue','knockdowns_red','sig_attempts_blue','sig_attempts_red','sig_strikes_blue','sig_strikes_red',
         'total_strikes_attempts_blue','total_strikes_attempts_red','total_strikes_blue','total_strikes_red','sub_attempts_blue',
         'sub_attempts_red','takedowns_blue','takedowns_red','takedown_attempts_blue','takedown_attempts_red','control_time_blue',
         'control_time_red','head_strikes_red','head_strikes_blue','head_attempts_red','head_attempts_blue','body_strikes_red',
