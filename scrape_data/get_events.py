@@ -72,7 +72,7 @@ class Bouts(scrapy.Spider):
     def start_requests(self):
         # Start scraping from the ufc completed events page
         start_urls = [
-            'http://ufcstats.com/statistics/events/completed?page=1'
+            'http://ufcstats.com/statistics/events/completed?page=all'
         ]
         # Issue requests to all start urls
         for url in start_urls:
@@ -373,7 +373,7 @@ class Bouts(scrapy.Spider):
 
 if __name__ == "__main__":
     
-    output_file = "data/events1.csv"
+    output_file = "data/events.csv"
     start_time = time.time()
 
     process = CrawlerProcess(settings={
