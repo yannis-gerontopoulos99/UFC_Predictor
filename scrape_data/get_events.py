@@ -24,14 +24,14 @@ class BoutScraperItem(Item):
     stance_blue = Field()
     knockdowns_red = Field()
     knockdowns_blue = Field()
-    sig_strikes_red = Field()
-    sig_strikes_blue = Field()
     sig_attempts_red = Field()
     sig_attempts_blue = Field()
-    total_strikes_red = Field()
-    total_strikes_blue = Field()
+    sig_strikes_red = Field()
+    sig_strikes_blue = Field()
     total_strikes_attempts_red = Field()
     total_strikes_attempts_blue = Field()
+    total_strikes_red = Field()
+    total_strikes_blue = Field()
     takedowns_red = Field()
     takedowns_blue = Field()
     takedown_attempts_red = Field()
@@ -407,15 +407,15 @@ if __name__ == "__main__":
     df = pd.read_csv(output_file)
     df['event_date'] = pd.to_datetime(df['event_date'])
     df_sorted = df.sort_values(by='event_date', ascending=True)
-    df_sorted = df_sorted.reindex(columns=['event_date','event_name','fighter_blue','fighter_red','round','time','weight_class',
-        'win_method','winner','stance_red', 'stance_blue','knockdowns_blue','knockdowns_red','sig_attempts_blue','sig_attempts_red','sig_strikes_blue','sig_strikes_red',
-        'total_strikes_attempts_blue','total_strikes_attempts_red','total_strikes_blue','total_strikes_red','sub_attempts_blue',
-        'sub_attempts_red','takedowns_blue','takedowns_red','takedown_attempts_blue','takedown_attempts_red','control_time_blue',
-        'control_time_red','head_strikes_red','head_strikes_blue','head_attempts_red','head_attempts_blue','body_strikes_red',
-        'body_strikes_blue','body_attempts_red','body_attempts_blue','leg_strikes_red','leg_strikes_blue','leg_attempts_red',
-        'leg_attempts_blue','distance_red','distance_blue','distance_attempts_red','distance_attempts_blue','clinch_strikes_red',
-        'clinch_strikes_blue','clinch_attempts_red','clinch_attempts_blue','ground_strikes_red','ground_strikes_blue',
-        'ground_attempts_red','ground_attempts_blue'])
+    df_sorted = df_sorted.reindex(columns=['event_date','event_name','fighter_red','fighter_blue','round','time','weight_class',
+        'win_method','winner','stance_red', 'stance_blue','knockdowns_red','knockdowns_blue','sig_attempts_red','sig_attempts_blue',
+        'sig_strikes_red','sig_strikes_blue','total_strikes_attempts_red','total_strikes_attempts_blue','total_strikes_red',
+        'total_strikes_blue','sub_attempts_red','sub_attempts_blue','takedowns_red','takedowns_blue','takedown_attempts_red',
+        'takedown_attempts_blue','control_time_red','control_time_blue','head_strikes_red','head_strikes_blue','head_attempts_red',
+        'head_attempts_blue','body_strikes_red','body_strikes_blue','body_attempts_red','body_attempts_blue','leg_strikes_red',
+        'leg_strikes_blue','leg_attempts_red','leg_attempts_blue','distance_red','distance_blue','distance_attempts_red',
+        'distance_attempts_blue','clinch_strikes_red','clinch_strikes_blue','clinch_attempts_red','clinch_attempts_blue',
+        'ground_strikes_red','ground_strikes_blue','ground_attempts_red','ground_attempts_blue'])
     df_sorted.to_csv(output_file, index=False)
 
     print(f"Data saved and sorted to: {os.path.abspath(output_file)}")

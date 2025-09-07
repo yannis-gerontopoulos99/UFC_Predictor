@@ -10,6 +10,10 @@ fighters_csv = pd.read_csv('data/fighters.csv')
 fighters_csv = fighters_csv.applymap(lambda x: x.lower().replace(' ', '-'))
 athlete_names = fighters_csv['fighter'].to_list()
 
+# Track failed URLs and reasons
+failed_urls = []
+successful_names = []
+
 # Scraping method
 class UfcAthleteSpider(scrapy.Spider):
     name = "ufc_athlete"
@@ -19,6 +23,20 @@ class UfcAthleteSpider(scrapy.Spider):
     start_urls = [f"https://www.ufc.com/athlete/{name}" for name in athlete_names]
 
     def parse(self, response):
+        # Extract fighter name from URL for debugging
+        url_fighter_name = response.url.split('/')[-1]
+        
+        # Check if we got a 404 or redirect
+        if response.status == 404:
+            self.logger.warning(f"404 Error for fighter: {url_fighter_name}")
+            failed_urls.append((url_fighter_name, "404_not_found"))
+            return
+            
+        # Check if we were redirected (might indicate fighter page doesn't exist)
+        if response.url != response.request.url:
+            self.logger.warning(f"Redirected from {response.request.url} to {response.url}")
+            failed_urls.append((url_fighter_name, "redirected"))
+
         name = response.css('h1.hero-profile__name::text').get()
         nickname = response.css('p.hero-profile__nickname::text').get()
         division = response.css('p.hero-profile__division-title::text').get()
@@ -26,13 +44,18 @@ class UfcAthleteSpider(scrapy.Spider):
 
         if not name or not name.strip():
             self.logger.info(f"Name not found on page: {response}")
+            failed_urls.append((url_fighter_name, "no_name_found"))
             return #Skip this item
 
         # Extract wins, losses, draws from record
         # Example input: '38-19-0 (W-L-D)'
         if record:
-            parts = record.strip().split(' ')[0]  # Get '38-19-0'
-            wins, losses, draws = parts.split('-')  # Split into separate values
+            try:
+                parts = record.strip().split(' ')[0]  # Get '38-19-0'
+                wins, losses, draws = parts.split('-')  # Split into separate values
+            except (ValueError, IndexError):
+                self.logger.warning(f"Could not parse record '{record}' for {name}")
+                wins = losses = draws = '0'
         else:
             wins = losses = draws = '0'
 
@@ -242,11 +265,18 @@ class UfcAthleteSpider(scrapy.Spider):
             
         }
 
+    def errback_httpbin(self, failure):
+        # Handle request failures
+        request = failure.request
+        url_fighter_name = request.url.split('/')[-1]
+        self.logger.error(f"Request failed for {url_fighter_name}: {failure}")
+        failed_urls.append((url_fighter_name, str(failure.value)))
+
 if __name__ == "__main__":
 
     start_time = time.time()
 
-    output_file = "data/stats.csv"
+    output_file = "data/stats1.csv"
     process = CrawlerProcess(settings={
         "FEEDS": {
             output_file: {
@@ -262,8 +292,11 @@ if __name__ == "__main__":
         "ROBOTSTXT_OBEY": False,
         "LOG_LEVEL": "INFO",
         "RETRY_ENABLED": True,
-        "RETRY_HTTP_CODES": [403, 500, 502, 503, 504],
-        "DOWNLOAD_TIMEOUT": 15
+        "RETRY_HTTP_CODES": [403, 429, 500, 502, 503, 504, 522, 524],
+        "DOWNLOAD_TIMEOUT": 15,
+        "DOWNLOAD_DELAY": 1,
+        "RANDOMIZE_DOWNLOAD_DELAY": 0.5,
+        "CONCURRENT_REQUESTS": 8,
     })
 
     # Start process
@@ -271,6 +304,9 @@ if __name__ == "__main__":
     process.start()
 
     print("Data scraped and saved!")
+    print(f"Total fighters attempted: {len(athlete_names)}")
+    print(f"Successful scraped: {len(successful_names)}")
+    print(f"Failed URLs: {len(failed_urls)}")
 
     # Calculate duration
     end_time = time.time()

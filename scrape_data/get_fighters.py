@@ -20,12 +20,15 @@ class UfcAthleteSpider(scrapy.Spider):
 
     def parse(self, response):
         # Scrape all athlete names on the current page
-        for stat in response.css('div.c-listing-athlete__text'):
-            name = stat.css('span.c-listing-athlete__name::text').get()
-            if name:
-                name = name.strip()
+        for stat in response.css('div.c-listing-athlete-flipcard__action a.e-button--black'):
+            href = stat.css('::attr(href)').get()
+            if href:
+                # Remove "/athlete/" prefix
+                slug = href.split("/athlete/")[-1]
+                # Convert "conor-mcgregor" → "Conor Mcgregor"
+                name = " ".join(word.capitalize() for word in slug.split("-"))
                 self.athlete_names.append(name)
-    
+
         # Check for the Load More button
         next_page = response.css('ul.js-pager__items li.pager__item a::attr(href)').get()
         if next_page:
