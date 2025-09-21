@@ -7,6 +7,7 @@ import time
 import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
+from scrape_data.compare_update_fighters import process_fighters_and_get_new_names
 
 load_dotenv()  # load variables from .env file
 
@@ -16,19 +17,19 @@ def extract_fighters(temp_file='data/temp_bouts.csv'):
         print(f"File not found: {temp_file}")
         return []
     
-    df = pd.read_csv(temp_file)
+    output_df = pd.read_csv(temp_file)
 
-    if 'fighter_blue' not in df.columns or 'fighter_red' not in df.columns:
+    if 'fighter_blue' not in output_df.columns or 'fighter_red' not in output_df.columns:
         print("Columns 'fighter_blue' and/or 'fighter_red not found in the file")
         return []
     
     # Concat two columns together
-    fighter_series = pd.concat([df['fighter_blue'], df['fighter_red']], ignore_index=True)
+    fighter_series = pd.concat([output_df['fighter_blue'], output_df['fighter_red']], ignore_index=True)
     fighter_series = fighter_series.dropna().astype(str)
 
-    fighter_df = pd.DataFrame({'fighter': fighter_series})
+    fighter_output_df = pd.DataFrame({'fighter': fighter_series})
 
-    return fighter_df
+    return fighter_output_df
 
 # Track failed URLs and reasons
 failed_urls = []
@@ -308,10 +309,10 @@ def update_fighter_stats(old_file, updated_file, key_columns, update_columns):
         print("Update filenot found")
         return
     
-    old_df = pd.read_csv(old_file)
-    new_df = pd.read_csv(updated_file)
+    old_output_df = pd.read_csv(old_file)
+    new_output_df = pd.read_csv(updated_file)
 
-    merged_df = pd.merge(old_df, new_df[key_columns + update_columns],
+    merged_output_df = pd.merge(old_output_df, new_output_df[key_columns + update_columns],
                         on=key_columns,
                         how='left',
                         suffixes=('','_new'))
@@ -319,11 +320,11 @@ def update_fighter_stats(old_file, updated_file, key_columns, update_columns):
     # Replace only the updated columns
     for col in update_columns:
         new_col = col + '_new'
-        if new_col in merged_df.columns:
-            merged_df[col] = merged_df[new_col].combine_first(merged_df[col])
-            merged_df.drop(columns=[new_col], inplace=True)
+        if new_col in merged_output_df.columns:
+            merged_output_df[col] = merged_output_df[new_col].combine_first(merged_output_df[col])
+            merged_output_df.drop(columns=[new_col], inplace=True)
 
-    merged_df.to_csv(old_file, index=False)
+    merged_output_df.to_csv(old_file, index=False)
     print(f"Updated master file saved to {old_file}")
 '''
 
@@ -334,7 +335,7 @@ def update_fighter_stats_sql(host, user, password, database, table_name, updated
         print("Updated CSV file not found.")
         return
 
-    new_df = pd.read_csv(updated_file)
+    new_output_df = pd.read_csv(updated_file)
 
     try:
         conn = mysql.connector.connect(
@@ -346,7 +347,7 @@ def update_fighter_stats_sql(host, user, password, database, table_name, updated
 
         cursor = conn.cursor()
 
-        for _, row in new_df.iterrows():
+        for _, row in new_output_df.iterrows():
             # Build the SET and WHERE clause
             set_clause = ", ".join([f"{col} = %s" for col in update_columns])
             where_clause = " AND ".join([f"{col} = %s" for col in key_columns])
@@ -380,13 +381,16 @@ def update_fighter_stats_sql(host, user, password, database, table_name, updated
 
 if __name__ == "__main__":
     # Step 1: Get fighter list
-    fighter_df = extract_fighters()
+    fighter_output_df = extract_fighters()
     
-    # Step 2: Convert to UFC-style URLs
-    fighters_csv = fighter_df.applymap(lambda x: x.lower().replace(' ', '-'))
+    # Step 2: Process fighters against database and get new fighter names if there are
+    athlete_names, matching_stats = process_fighters_and_get_new_names(fighter_output_df)
+
+    # Step 3: Convert to UFC-style URLs
+    fighters_csv = fighter_output_df.applymap(lambda x: x.lower().replace(' ', '-'))
     athlete_names = fighters_csv['fighter'].to_list()
 
-    # Step 3: Scrape data
+    # Step 4: Scrape new stats
     output_file = "data/updated_stats.csv"
     start_time = time.time()
 
@@ -423,16 +427,15 @@ if __name__ == "__main__":
     end_time = time.time()
     print(f"\nScraping completed in {end_time - start_time:.2f} seconds.")
 
-    df = pd.read_csv(output_file)
-    print(df)
+    output_df = pd.read_csv(output_file)
+    print(output_df)
 
-    # Step 4: Merge into master
+    # Step 5: Merge into master
     #old_master_file = 'data/stats.csv'
     
     # Test database connection first
     print("Testing database connection...")
     try:
-        database=os.getenv("DB_NAME")
         conn = mysql.connector.connect(
         host=os.getenv("DB_HOST"),
         user=os.getenv("DB_USER"),
@@ -441,6 +444,7 @@ if __name__ == "__main__":
         )
 
         cursor = conn.cursor()
+        database=os.getenv("DB_NAME")
         print(f"✓ Successfully connected to database {database}")
             
     except Error as e:
@@ -467,7 +471,7 @@ if __name__ == "__main__":
     #Update csv
     #update_fighter_stats(old_master_file, output_file, key_columns, update_columns)
 
-    # Step 5: Update MySQL database
+    # Step 6: Update MySQL database
     update_fighter_stats_sql(
     host=os.getenv("DB_HOST"),
     user=os.getenv("DB_USER"),
@@ -478,37 +482,8 @@ if __name__ == "__main__":
     key_columns=key_columns,
     update_columns=update_columns)
 
-    # Step 6: Check for missing/new fighters
-    conn = mysql.connector.connect(
-        host=os.getenv("DB_HOST"),
-        user=os.getenv("DB_USER"),
-        database=os.getenv("DB_NAME"),
-        password=os.getenv("DB_PASSWORD")
-    )
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM stats")  
-    db_fighters = [row[0] for row in cursor.fetchall()]
-    cursor.close()
-    conn.close()
-
-    scraped_fighters = df["name"].dropna().tolist()
-    missing_fighters = [f for f in db_fighters if f not in scraped_fighters]
-    new_fighters = [f for f in scraped_fighters if f not in db_fighters]
-
-    if missing_fighters:
-        pd.DataFrame({"missing_fighter": missing_fighters}).to_csv("data/missing_fighters.csv", index=False)
-        print(f"Missing fighters saved to data/missing_fighters.csv")
-
     # Remove temporarily file
     #os.remove(output_file)
-
-    print("Fighters to update:")
-    print(new_fighters)
-    print("\nTotal New Fighters Found: ", len(new_fighters))
-
-    print("\nFighters not found:")
-    #print(missing_fighters)
-    print("\nTotal Fighters Not Found: ", len(missing_fighters))
 
 # Constant variables per fighter
 #name, place_of_birth, 

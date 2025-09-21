@@ -3,6 +3,3 @@ myenv
 Local.session.sql
 test.py
 .env
-notebooks/eda_2.ipynb
-notebooks/etl_1.ipynb
-notebooks/feature_engineering_3.ipynb

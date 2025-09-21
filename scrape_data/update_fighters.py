@@ -64,7 +64,6 @@ class UfcAthleteSpider(scrapy.Spider):
             existing_names = set()
         '''
 
-        import mysql.connector
         # Event data
         conn = mysql.connector.connect(
         host=os.getenv("DB_HOST"),

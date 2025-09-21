@@ -10,5 +10,6 @@ scikit-learn
 xgboost
 torch
 python-dotenv
-fuzzywuzzy
+rapidfuzz
+pickle
 #torch torchvision --index-url https://download.pytorch.org/whl/cu126
