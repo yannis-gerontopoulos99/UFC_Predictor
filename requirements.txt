@@ -12,4 +12,5 @@ torch
 python-dotenv
 rapidfuzz
 pickle
-#torch torchvision --index-url https://download.pytorch.org/whl/cu126
+flask
+flask_cors

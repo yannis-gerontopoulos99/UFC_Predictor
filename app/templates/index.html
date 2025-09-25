@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>UFC Fight Predictor</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <style>
+    body {
+      background-color: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    .container {
+      margin-top: 50px;
+      text-align: center;
+    }
+    .logo {
+      width: 120px;
+      margin-bottom: 20px;
+    }
+    .card {
+      background-color: #1c1c1c;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    .btn-ufc {
+      background-color: #d31a1a;
+      color: white;
+      font-weight: bold;
+    }
+    .btn-ufc:hover {
+      background-color: #b01515;
+    }
+    .results {
+      margin-top: 20px;
+      text-align: center; /* Center the results */
+    }
+    .suggestions {
+      margin-top: 20px;
+      text-align: left;
+    }
+    .suggestion {
+      cursor: pointer;
+      padding: 2px 5px;
+      margin: 2px;
+      border-radius: 4px;
+      background-color: #333;
+      display: inline-block;
+      color: white; /* Ensure suggestions are visible */
+    }
+    .suggestion:hover {
+      background-color: #555;
+    }
+    .fighter-name {
+      color: #ffffff; /* White font for predicted names */
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="{{ url_for('static', filename='ufc_logo.png') }}" class="logo" alt="UFC Logo">
+    <h1>UFC Fight Predictor</h1>
+    <p>Enter two fighters to get predictions</p>
+
+    <div class="card">
+      <form id="fighterForm">
+        <div class="mb-3">
+          <input type="text" id="redFighter" class="form-control" placeholder="Red Corner Fighter" required>
+          <div id="redSuggestions" class="suggestions"></div>
+        </div>
+        <div class="mb-3">
+          <input type="text" id="blueFighter" class="form-control" placeholder="Blue Corner Fighter" required>
+          <div id="blueSuggestions" class="suggestions"></div>
+        </div>
+        <button type="submit" class="btn btn-ufc w-100" disabled id="predictButton">Predict Fight</button>
+      </form>
+    </div>
+
+    <div id="predictionResult" class="results"></div>
+  </div>
+
+  <script>
+    const redInput = document.getElementById("redFighter");
+    const blueInput = document.getElementById("blueFighter");
+    const redSuggestionsDiv = document.getElementById("redSuggestions");
+    const blueSuggestionsDiv = document.getElementById("blueSuggestions");
+    const predictButton = document.getElementById("predictButton");
+    const predictionResult = document.getElementById("predictionResult");
+
+    let confirmedRed = null;
+    let confirmedBlue = null;
+
+    function capitalizeWords(str) {
+      return str.replace(/\b\w/g, char => char.toUpperCase());
+    }
+
+    async function fetchSuggestions(query) {
+      const res = await fetch(`/api/search_fighters?query=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      if (data.success) {
+        return data.matches.slice(0, 3);
+      }
+      return [];
+    }
+
+    function renderSuggestions(matches, container, color) {
+      container.innerHTML = "";
+      matches.forEach(match => {
+        const div = document.createElement("div");
+        div.classList.add("suggestion");
+        div.innerText = capitalizeWords(match.name);
+        div.onclick = () => {
+          const name = capitalizeWords(match.name);
+          if (color === "Red") {
+            redInput.value = name;
+            confirmedRed = name;
+          } else {
+            blueInput.value = name;
+            confirmedBlue = name;
+          }
+          container.innerHTML = "";
+          checkBothConfirmed();
+        };
+        container.appendChild(div);
+      });
+    }
+
+    async function handleInput(e, color) {
+      const value = e.target.value.trim();
+      if (value.length < 2) return;
+
+      const matches = await fetchSuggestions(value);
+      if (color === "Red") renderSuggestions(matches, redSuggestionsDiv, color);
+      if (color === "Blue") renderSuggestions(matches, blueSuggestionsDiv, color);
+    }
+
+    function checkBothConfirmed() {
+      predictButton.disabled = !(confirmedRed && confirmedBlue);
+    }
+
+    redInput.addEventListener("input", (e) => { confirmedRed = null; handleInput(e, "Red"); checkBothConfirmed(); });
+    blueInput.addEventListener("input", (e) => { confirmedBlue = null; handleInput(e, "Blue"); checkBothConfirmed(); });
+
+    document.getElementById("fighterForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      predictionResult.innerHTML = "Loading...";
+
+      if (!confirmedRed || !confirmedBlue) {
+        predictionResult.innerHTML = "<p class='text-warning'>Please confirm both fighters from suggestions.</p>";
+        return;
+      }
+
+      const response = await fetch("/api/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ red_fighter: confirmedRed, blue_fighter: confirmedBlue })
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        predictionResult.innerHTML = `
+          <h3>Prediction Result</h3>
+          <p><strong>Winner:</strong> <span class="fighter-name">${capitalizeWords(result.prediction.winner_name)}</span></p>
+          <p>Red Probability: <span class="fighter-name">${result.prediction.red_probability}</span></p>
+          <p>Blue Probability: <span class="fighter-name">${result.prediction.blue_probability}</span></p>
+          <p>Confidence: <span class="fighter-name">${result.prediction.confidence}</span></p>
+        `;
+      } else {
+        predictionResult.innerHTML = `<p class="text-danger">${result.error}</p>`;
+      }
+    });
+  </script>
+</body>
+</html>
