@@ -1,14 +1,15 @@
 # UFC Predictor End-To-End Project 🥊
 
 This project predicts UFC fight winners using machine learning models trained on scraped data from the official UFC website.
+It achieves a 70% accuracy and F1 score, the highest in any repo to date.
 
 ## 📌 Features
 
 * **Web Scraping**: Extracts fighter stats, event details, and new fighter entries directly from UFC.com.
 * **Database Management**: Stores and updates data in a MySQL database with custom scripts for fighters, stats, and events.
 * **Data Processing**: Cleans and filters data (fighters, events, and stats) using Jupyter notebooks.
-* **Feature Engineering**: Generates new features including averages, exponential moving averages (EMA), and momentum-based features.
-* **Machine Learning Models**: Trains multiple classifiers (Random Forest, XGBoost, Logistic Regression, SVM, etc.) with normalization, standardization, and feature selection.
+* **Feature Engineering**: Normalize and generate new features including averages, exponential moving averages (EMA), and momentum-based features.
+* **Machine Learning Models**: Trains multiple classifiers (Random Forest, XGBoost, Logistic Regression, SVM, PyTorch, etc.) with standardization, and feature selection.
 * **Performance**: Achieves ~70% accuracy, precision, and recall on historical and real-world test cases.
 
 ## 🗂️ Project Structure
@@ -134,9 +135,10 @@ python DB_connections/append_stats_DB.py
 python scrape_date/update_events.py
 ```
 
-**Logic behind database updating** Each time the script scrape_date/update_events.py is run, the new events and fights are being added.
+**Logic behind database updating** Each time the script `scrape_date/update_events.py` is run, the new events and fights are being added.
 In these fights, any new fighter that is found is being appended to the fighter database and his stats also in the stats database.
 If an old fighter is found, then his stats are being updated in the stats database.
+It also utilizes name normalization and matching due to the different nature of the fighter names from each database.
 
 **UFC Website** In general, the website is well maintained and updated every week after an event. 
 After scrapping all available data and analyzing it. It is noticed that some older events have some missing values.
@@ -145,6 +147,19 @@ The biggest issue are the fighter stats, which are a bit neglected and many issu
 **Explore data and train models:** Open the Jupyter notebooks in the `notebooks/` folder in order (1 → 7).
 
 **Evaluate models:** Models are stored in `models/` and can be loaded for prediction.
+
+## 💻 App
+
+**Run app:** Run and predict using your input for fighter names
+```bash
+python app/app.py
+```
+
+**Local hosting:** Host and predict using your input for fighter names
+```bash
+python app/app_flask.py
+```
+**Docs:** Documentation do the models and methodologies
 
 ## 📊 Results
 
@@ -155,14 +170,26 @@ The biggest issue are the fighter stats, which are a bit neglected and many issu
 
 * **Python**: Data scraping, processing, and ML
 * **MySQL**: Relational database storage
-* **Scrapy / Requests**: Scraping
+* **Scrapy**: Scraping
 * **Pandas / NumPy**: Data manipulation
 * **Scikit-learn / XGBoost / PyTorch**: Machine learning models
 * **Jupyter Notebooks**: Analysis and experimentation
+* **Rapidfuzz**: Fuzzy match for normalization
+* **Flask**: Hosting the app
+
+## 📝 Future Improvements
+
+* Scrape and use betting data
+* Explore more models
+* Explore more and perform different feature engineering techniques
+* Add a logger and more error logic
+* Host app
+* Cache data while scrapping
+* Create a more interactive UI
 
 ## 🙏 Acknowledgements
 
-* Thanks to a fellow GitHub contributor for their work, which provided influence and some files that helped shape this project.
+* Thanks to [@mfourier](https://github.com/mfourier) who provided influence and some documentation files that helped shape this project.
 * Special thanks to the open-source community for the tools and libraries that make this possible.
 
 ## ⚖️ Disclaimer

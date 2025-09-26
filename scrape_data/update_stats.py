@@ -7,7 +7,7 @@ import time
 import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
-from scrape_data.compare_update_fighters import process_fighters_and_get_new_names
+from compare_update_fighters import process_fighters_and_get_new_names
 
 load_dotenv()  # load variables from .env file
 

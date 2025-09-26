@@ -4,3 +4,4 @@ Local.session.sql
 test.py
 .env
 app/__pycache__
+scrape_data/__pycache__
