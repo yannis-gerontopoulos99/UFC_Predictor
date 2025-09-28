@@ -138,7 +138,6 @@ class FighterDataProcessor:
         fuzzy_matches = 0
         no_matches = 0
         no_matches_list = []
-        fuzzy_matches_list = []  # Store fuzzy matches for display
         
         for output_name in output_names:
             if pd.isna(output_name):
@@ -169,23 +168,13 @@ class FighterDataProcessor:
                     exact_matches += 1
                 else:
                     fuzzy_matches += 1
-                    fuzzy_matches_list.append({
-                        'original_name': output_name,
-                        'matched_name': best_match,
-                        'score': best_score
-                    })
             else:
                 mapping[output_name] = None
                 no_matches += 1
-                no_matches_list.append({
-                    'unmatched_fighter': output_name,
-                    'best_match': best_match,
-                    'score': best_score
-                })
+                no_matches_list.append(output_name)
         
-        # Convert lists into DataFrames
-        no_matches_df = pd.DataFrame(no_matches_list) if no_matches_list else None
-        fuzzy_matches_df = pd.DataFrame(fuzzy_matches_list) if fuzzy_matches_list else None
+        # Convert no matches into a DataFrame (if any)
+        no_matches_df = pd.DataFrame(no_matches_list, columns=["unmatched_fighter"]) if no_matches_list else None
         
         stats = {
             "total_output_fighters": len(set(output_names)),
@@ -195,41 +184,21 @@ class FighterDataProcessor:
             "no_matches": no_matches
         }
         
-        self._print_mapping_stats(stats, no_matches_df, fuzzy_matches_df)
+        self._print_mapping_stats(stats, no_matches_df)
         
         return mapping, stats, no_matches_df
     
-    def _print_mapping_stats(self, stats, no_matches_df, fuzzy_matches_df):
+    def _print_mapping_stats(self, stats, no_matches_df):
         """Print mapping statistics"""
-        print(f"\n{'='*60}")
-        print("FUZZY MATCHING RESULTS")
-        print(f"{'='*60}")
         print(f"Total unique fighters in events: {stats['total_output_fighters']}")
-        print(f"Total unique names in database: {stats['total_db_names']}")
+        print(f"Total unique names in stats: {stats['total_db_names']}")
         print(f"Exact matches: {stats['exact_matches']}")
         print(f"Fuzzy matches: {stats['fuzzy_matches']}")
         print(f"No matches found: {stats['no_matches']}")
         
-        # Show fuzzy matches
-        if stats['fuzzy_matches'] > 0 and fuzzy_matches_df is not None:
-            print(f"\n{'-'*60}")
-            print("FUZZY MATCHES FOUND:")
-            print(f"{'-'*60}")
-            for _, row in fuzzy_matches_df.iterrows():
-                print(f"'{row['original_name']}' → '{row['matched_name']}' (Score: {row['score']})")
-        
-        # Show unmatched fighters with their best potential match
         if stats['no_matches'] > 0 and no_matches_df is not None:
-            print(f"\n{'-'*60}")
-            print("UNMATCHED FIGHTERS (with best potential match):")
-            print(f"{'-'*60}")
-            for _, row in no_matches_df.iterrows():
-                if row['best_match']:
-                    print(f"'{row['unmatched_fighter']}' → '{row['best_match']}' (Score: {row['score']}) [BELOW THRESHOLD]")
-                else:
-                    print(f"'{row['unmatched_fighter']}' → No match found")
-        
-        print(f"{'='*60}\n")
+            print("\nUnmatched fighters:")
+            print(no_matches_df)
     
     def prepare_unmatched_fighters(self, no_matches_df, fighter_output_df):
         """Map normalized unmatched names back to original names"""
@@ -240,9 +209,8 @@ class FighterDataProcessor:
         norm_to_orig = dict(zip(fighter_output_df["normalized_fighter"], fighter_output_df["fighter"]))
         no_matches_df["original_fighter"] = no_matches_df["unmatched_fighter"].map(norm_to_orig)
         
-        print("Unmatched fighters in original format:")
-        for _, row in no_matches_df.iterrows():
-            print(f"  - {row['original_fighter']}")
+        print("\nUnmatched fighters in original format:")
+        print(no_matches_df[["original_fighter"]])
         
         return no_matches_df
 
@@ -612,7 +580,7 @@ def process_fighters_and_get_new_names(fighter_output_df):
         athlete_names = scraping_manager.prepare_fighter_names_for_scraping(no_matches_df)
         
         print(f"Found {len(athlete_names)} new fighters to scrape")
-        return athlete_names, stats, no_matches_df
+        return athlete_names, stats
     else:
         print("No unmatched fighters found.")
         return [], stats
@@ -633,6 +601,69 @@ def run_fighter_scraping(athlete_names):
     
     print(f"Starting scraping for {len(athlete_names)} fighters...")
     scraping_manager.run_scraping(athlete_names)
+
+def process_fighters_and_get_new_names(fighter_output_df):
+    """
+    Process fighters against database and return new fighter names for scraping.
+    This is the main function to be called from other scripts.
+    
+    Args:
+        fighter_output_df: DataFrame with 'fighter' column containing fighter names
+        
+    Returns:
+        tuple: (athlete_names_list, stats_dict) where:
+            - athlete_names_list: List of URL-formatted names for scraping
+            - stats_dict: Dictionary with matching statistics
+    """
+    # Initialize managers
+    db_manager = DatabaseManager()
+    processor = FighterDataProcessor()
+    scraping_manager = UFCScrapingManager(db_manager)
+    
+    if fighter_output_df.empty:
+        print("No fighters provided.")
+        return [], {}
+    
+    # Test database connection
+    print("Testing database connection...")
+    if not db_manager.test_connection():
+        print("Database connection failed.")
+        return [], {}
+    
+    # Extract fighters from database
+    print("Extracting fighters from database...")
+    fighter_database_list = db_manager.extract_fighters_from_db()
+    
+    # Normalize names
+    print("Normalizing fighter names...")
+    fighter_output_df["normalized_fighter"] = fighter_output_df["fighter"].apply(processor.normalize_name)
+    normalized_fighters_db = [processor.normalize_name(name) for name in fighter_database_list]
+    
+    # Run fuzzy mapping
+    print("Running fuzzy mapping...")
+    mapping, stats, no_matches_df = processor.create_fuzzy_mapping(
+        fighter_output_df["normalized_fighter"], 
+        normalized_fighters_db
+    )
+    
+    # Handle unmatched fighters
+    if no_matches_df is not None and not no_matches_df.empty:
+        print("Processing unmatched fighters...")
+        
+        # Prepare unmatched fighters
+        no_matches_df = processor.prepare_unmatched_fighters(no_matches_df, fighter_output_df)
+        
+        # Insert new fighters into database
+        success_count, failed_rows = db_manager.insert_new_fighters(no_matches_df)
+        
+        # Prepare names for scraping (URL format)
+        athlete_names = scraping_manager.prepare_fighter_names_for_scraping(no_matches_df)
+        
+        print(f"Found {len(athlete_names)} new fighters to scrape")
+        return athlete_names, stats
+    else:
+        print("No unmatched fighters found.")
+        return [], stats
 
 def main():
     """Main execution function for standalone use"""
