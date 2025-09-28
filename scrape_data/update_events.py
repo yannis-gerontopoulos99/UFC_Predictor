@@ -511,5 +511,5 @@ if __name__ == "__main__":
         print("No temp file found.")
     
     # Remove temporarily file
-    #os.remove(temp_file)
+    os.remove(temp_file)
     

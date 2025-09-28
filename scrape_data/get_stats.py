@@ -276,7 +276,7 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    output_file = "data/stats1.csv"
+    output_file = "data/stats.csv"
     process = CrawlerProcess(settings={
         "FEEDS": {
             output_file: {

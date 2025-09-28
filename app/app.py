@@ -1170,17 +1170,17 @@ class UFCPredictionPipeline:
         # Default model paths
         if model_paths is None:
             model_paths = [
-                ('models/adaboostclassifier.pkl', 'auto'),
-                ('models/decisiontreeclassifier.pkl', 'auto'),
-                ('models/gaussiannb.pkl', 'auto'),
+                #('models/adaboostclassifier.pkl', 'auto'),
+                #('models/decisiontreeclassifier.pkl', 'auto'),
+                #('models/gaussiannb.pkl', 'auto'),
                 ('models/gradientboostingclassifier.pkl', 'auto'),
-                ('models/kneighborsclassifier.pkl', 'auto'),
+                #('models/kneighborsclassifier.pkl', 'auto'),
                 ('models/logisticregression.pkl', 'auto'),
                 ('models/PyTorch_state_dict.pth', 'Neural Network'),
                 ('models/randomforestclassifier.pkl', 'auto'),
                 ('models/sgdclassifier.pkl', 'auto'),
                 ('models/svc.pkl', 'auto'),
-                ('models/xgbclassifier.pkl', 'auto')
+                #('models/xgbclassifier.pkl', 'auto')
             ]
         
         try:

@@ -7,6 +7,9 @@ import time
 import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
+from rapidfuzz import fuzz
+import unicodedata
+import re
 from compare_update_fighters import process_fighters_and_get_new_names
 
 load_dotenv()  # load variables from .env file
@@ -34,6 +37,185 @@ def extract_fighters(temp_file='data/temp_bouts.csv'):
 # Track failed URLs and reasons
 failed_urls = []
 successful_names = []
+
+
+import pandas as pd
+import mysql.connector
+from mysql.connector import Error
+from rapidfuzz import fuzz
+import os
+from dotenv import load_dotenv
+import unicodedata
+import re
+
+load_dotenv()
+
+def normalize_name(name):
+    """Normalize fighter names for comparison"""
+    if pd.isna(name):
+        return ""
+    
+    # Convert to string if not already
+    name = str(name)
+    # Normalize unicode characters
+    name = unicodedata.normalize('NFKD', name)
+    name = ''.join(c for c in name if not unicodedata.combining(c))
+    # Convert to lower
+    name = name.lower()
+    # Remove periods and other punctuation
+    name = re.sub(r'[^\w\s-]', '', name)
+    # Normalize spaces (multiple spaces to single space)
+    name = re.sub(r'\s+', ' ', name)
+    words = name.split()
+    
+    return ' '.join(words).strip()
+
+def get_database_fighters():
+    """Get all fighter names from the database"""
+    try:
+        conn = mysql.connector.connect(
+            host=os.getenv("DB_HOST"),
+            user=os.getenv("DB_USER"),
+            database=os.getenv("DB_NAME"),
+            password=os.getenv("DB_PASSWORD")
+        )
+        cursor = conn.cursor()
+        cursor.execute("SELECT fighter FROM fighters")
+        fighters = [row[0] for row in cursor.fetchall()]
+        cursor.close()
+        conn.close()
+        return fighters
+    except Error as e:
+        print(f"Database error: {e}")
+        return []
+
+def fuzzy_match_athlete_names(athlete_names, threshold=85):
+    """
+    Clean up athlete_names by fuzzy matching against database fighters.
+    Replace incorrect names with their closest database matches.
+    
+    Args:
+        athlete_names: List of URL-formatted athlete names (e.g., ['jon-jones', 'daniel-cormier'])
+        threshold: Minimum similarity score for fuzzy matching
+    
+    Returns:
+        tuple: (cleaned_athlete_names, corrections_made, failed_matches)
+    """
+    print(f"\nStarting fuzzy matching cleanup for {len(athlete_names)} athlete names...")
+    
+    # Get all fighters from database
+    db_fighters = get_database_fighters()
+    if not db_fighters:
+        print("No fighters found in database!")
+        return athlete_names, [], []
+    
+    print(f"Found {len(db_fighters)} fighters in database")
+    
+    # Convert athlete names back to readable format for matching
+    readable_athlete_names = [name.replace('-', ' ').title() for name in athlete_names]
+    
+    # Normalize both lists for comparison
+    normalized_athlete_names = [normalize_name(name) for name in readable_athlete_names]
+    normalized_db_names = [normalize_name(name) for name in db_fighters]
+    
+    cleaned_names = []
+    corrections_made = []
+    failed_matches = []
+    
+    for i, (original_url_name, readable_name, normalized_name) in enumerate(zip(athlete_names, readable_athlete_names, normalized_athlete_names)):
+        best_match = None
+        best_score = 0
+        best_db_name = None
+        
+        # Find best match in database
+        for j, (db_name, normalized_db_name) in enumerate(zip(db_fighters, normalized_db_names)):
+            if not normalized_db_name.strip():
+                continue
+                
+            # Calculate similarity scores
+            score = max(
+                fuzz.ratio(normalized_name, normalized_db_name),
+                fuzz.token_sort_ratio(normalized_name, normalized_db_name),
+                fuzz.token_set_ratio(normalized_name, normalized_db_name)
+            )
+            
+            if score > best_score:
+                best_score = score
+                best_match = normalized_db_name
+                best_db_name = db_name
+        
+        # Decide what to do with the match
+        if best_score >= threshold:
+            if normalized_name != best_match:
+                # We found a better match - replace the name
+                corrected_url_name = best_db_name.lower().replace(' ', '-')
+                cleaned_names.append(corrected_url_name)
+                corrections_made.append({
+                    'original_readable': readable_name,
+                    'original_url': original_url_name,
+                    'corrected_readable': best_db_name,
+                    'corrected_url': corrected_url_name,
+                    'score': best_score
+                })
+                print(f"CORRECTED: '{readable_name}' → '{best_db_name}' (Score: {best_score})")
+            else:
+                # Name is already correct
+                cleaned_names.append(original_url_name)
+        else:
+            # No good match found - keep original but log it
+            cleaned_names.append(original_url_name)
+            failed_matches.append({
+                'original_readable': readable_name,
+                'original_url': original_url_name,
+                'best_potential_match': best_db_name,
+                'score': best_score
+            })
+            print(f"NO MATCH: '{readable_name}' - best potential: '{best_db_name}' (Score: {best_score})")
+    
+    # Print summary
+    print(f"\n{'='*60}")
+    print("FUZZY MATCHING CLEANUP SUMMARY")
+    print(f"{'='*60}")
+    print(f"Total names processed: {len(athlete_names)}")
+    print(f"Corrections made: {len(corrections_made)}")
+    print(f"Failed matches: {len(failed_matches)}")
+    print(f"Names kept unchanged: {len(athlete_names) - len(corrections_made) - len(failed_matches)}")
+    
+    if corrections_made:
+        print(f"\n{'-'*40}")
+        print("CORRECTIONS MADE:")
+        print(f"{'-'*40}")
+        for correction in corrections_made:
+            print(f"  {correction['original_readable']} → {correction['corrected_readable']}")
+    
+    if failed_matches:
+        print(f"\n{'-'*40}")
+        print("FAILED MATCHES (keeping original):")
+        print(f"{'-'*40}")
+        for failed in failed_matches:
+            print(f"  {failed['original_readable']} (best: {failed['best_potential_match']}, score: {failed['score']})")
+    
+    print(f"{'='*60}\n")
+    
+    return cleaned_names, corrections_made, failed_matches
+
+# Example usage function to add to your main script
+def cleanup_athlete_names_before_scraping(athlete_names):
+    """
+    Wrapper function to clean up athlete names before scraping.
+    Add this between step 3 and scraping in your main script.
+    """
+    if not athlete_names:
+        print("No athlete names to clean up.")
+        return athlete_names
+    
+    print(f"Original athlete names: {athlete_names}")
+    
+    cleaned_names, corrections, failed = fuzzy_match_athlete_names(athlete_names)
+    
+    print(f"Cleaned athlete names: {cleaned_names}")
+    
+    return cleaned_names
 
 # Scraping method
 class UfcAthleteSpider(scrapy.Spider):
@@ -386,11 +568,20 @@ if __name__ == "__main__":
     # Step 2: Process fighters against database and get new fighter names if there are
     athlete_names, matching_stats = process_fighters_and_get_new_names(fighter_output_df)
 
-    # Step 3: Convert to UFC-style URLs
-    fighters_csv = fighter_output_df.applymap(lambda x: x.lower().replace(' ', '-'))
-    athlete_names = fighters_csv['fighter'].to_list()
+    # Step 3: Convert to UFC-style URLs (only if athlete_names is empty from Step 2)
+    if not athlete_names:
+        print("No new fighters found from database comparison")
+        fighters_csv = fighter_output_df.applymap(lambda x: x.lower().replace(' ', '-'))
+        athlete_names = fighters_csv['fighter'].to_list()
+    else:
+        print(f"Found {len(athlete_names)} fighters to update from database comparison")
+        # Convert athlete_names to URL format if they're not already
+        athlete_names = [name.lower().replace(' ', '-') if ' ' in name else name for name in athlete_names]
 
-    # Step 4: Scrape new stats
+    # Step 4: Fuzzy match names
+    athlete_names = cleanup_athlete_names_before_scraping(athlete_names)
+    
+    # Step 5: Scrape new stats
     output_file = "data/updated_stats.csv"
     start_time = time.time()
 
@@ -430,7 +621,7 @@ if __name__ == "__main__":
     output_df = pd.read_csv(output_file)
     print(output_df)
 
-    # Step 5: Merge into master
+    # Step 6: Merge into master
     #old_master_file = 'data/stats.csv'
     
     # Test database connection first
@@ -483,7 +674,7 @@ if __name__ == "__main__":
     update_columns=update_columns)
 
     # Remove temporarily file
-    #os.remove(output_file)
+    os.remove(output_file)
 
 # Constant variables per fighter
 #name, place_of_birth, 

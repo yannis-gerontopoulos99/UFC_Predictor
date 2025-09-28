@@ -1,7 +1,8 @@
 # UFC Predictor End-To-End Project 🥊
 
 This project predicts UFC fight winners using machine learning models trained on scraped data from the official UFC website.
-It achieves a 70% accuracy and F1 score, the highest in any repo to date.
+It achieves a 70% accuracy and F1 score, one of the highest in any repo to date.
+The project covers the data scraping, database usage, data exploration, cleaning, training, evaluation and local hosting. 
 
 ## 📌 Features
 
@@ -186,6 +187,7 @@ python app/app_flask.py
 * Host app
 * Cache data while scrapping
 * Create a more interactive UI
+* Handle fighters with 1 fight
 
 ## 🙏 Acknowledgements
 

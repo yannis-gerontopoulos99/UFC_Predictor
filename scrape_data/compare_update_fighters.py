@@ -8,7 +8,7 @@ from mysql.connector import Error
 from dotenv import load_dotenv
 import unicodedata
 import re
-from fuzzywuzzy import fuzz
+from rapidfuzz import fuzz
 from contextlib import contextmanager
 
 load_dotenv()
@@ -150,7 +150,7 @@ class FighterDataProcessor:
                 if pd.isna(db_name):
                     continue
                 
-                # Compare event name with db name
+                # Compare event name with db name using rapidfuzz
                 score = max(
                     fuzz.ratio(output_name, db_name),
                     fuzz.token_sort_ratio(output_name, db_name),
@@ -184,21 +184,12 @@ class FighterDataProcessor:
             "no_matches": no_matches
         }
         
-        self._print_mapping_stats(stats, no_matches_df)
+        # Print summary of matched and unmatched fighters
+        total_matched = exact_matches + fuzzy_matches
+        print(f"Matched fighters: {total_matched}")
+        print(f"Unmatched fighters: {no_matches}")
         
         return mapping, stats, no_matches_df
-    
-    def _print_mapping_stats(self, stats, no_matches_df):
-        """Print mapping statistics"""
-        print(f"Total unique fighters in events: {stats['total_output_fighters']}")
-        print(f"Total unique names in stats: {stats['total_db_names']}")
-        print(f"Exact matches: {stats['exact_matches']}")
-        print(f"Fuzzy matches: {stats['fuzzy_matches']}")
-        print(f"No matches found: {stats['no_matches']}")
-        
-        if stats['no_matches'] > 0 and no_matches_df is not None:
-            print("\nUnmatched fighters:")
-            print(no_matches_df)
     
     def prepare_unmatched_fighters(self, no_matches_df, fighter_output_df):
         """Map normalized unmatched names back to original names"""
@@ -209,8 +200,7 @@ class FighterDataProcessor:
         norm_to_orig = dict(zip(fighter_output_df["normalized_fighter"], fighter_output_df["fighter"]))
         no_matches_df["original_fighter"] = no_matches_df["unmatched_fighter"].map(norm_to_orig)
         
-        print("\nUnmatched fighters in original format:")
-        print(no_matches_df[["original_fighter"]])
+        # Removed the print statements for unmatched fighters
         
         return no_matches_df
 
@@ -232,14 +222,14 @@ class UFCScrapingManager:
     def create_scraper_process(self, athlete_names):
         """Create and configure scrapy process"""
         process = CrawlerProcess(settings={
-            "FEEDS": {
-                "output.csv": {
-                    "format": "csv",
-                    "encoding": "utf8",
-                    "overwrite": True,
-                    "store_empty": True
-                },
-            },
+            #"FEEDS": {
+            #    "output.csv": {
+            #        "format": "csv",
+            #        "encoding": "utf8",
+            #        "overwrite": True,
+            #        "store_empty": True
+            #    },
+            #},
             "USER_AGENT": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                 'AppleWebKit/537.36 (KHTML, like Gecko) '
                 'Chrome/115.0.0.0 Safari/537.36',
@@ -601,69 +591,6 @@ def run_fighter_scraping(athlete_names):
     
     print(f"Starting scraping for {len(athlete_names)} fighters...")
     scraping_manager.run_scraping(athlete_names)
-
-def process_fighters_and_get_new_names(fighter_output_df):
-    """
-    Process fighters against database and return new fighter names for scraping.
-    This is the main function to be called from other scripts.
-    
-    Args:
-        fighter_output_df: DataFrame with 'fighter' column containing fighter names
-        
-    Returns:
-        tuple: (athlete_names_list, stats_dict) where:
-            - athlete_names_list: List of URL-formatted names for scraping
-            - stats_dict: Dictionary with matching statistics
-    """
-    # Initialize managers
-    db_manager = DatabaseManager()
-    processor = FighterDataProcessor()
-    scraping_manager = UFCScrapingManager(db_manager)
-    
-    if fighter_output_df.empty:
-        print("No fighters provided.")
-        return [], {}
-    
-    # Test database connection
-    print("Testing database connection...")
-    if not db_manager.test_connection():
-        print("Database connection failed.")
-        return [], {}
-    
-    # Extract fighters from database
-    print("Extracting fighters from database...")
-    fighter_database_list = db_manager.extract_fighters_from_db()
-    
-    # Normalize names
-    print("Normalizing fighter names...")
-    fighter_output_df["normalized_fighter"] = fighter_output_df["fighter"].apply(processor.normalize_name)
-    normalized_fighters_db = [processor.normalize_name(name) for name in fighter_database_list]
-    
-    # Run fuzzy mapping
-    print("Running fuzzy mapping...")
-    mapping, stats, no_matches_df = processor.create_fuzzy_mapping(
-        fighter_output_df["normalized_fighter"], 
-        normalized_fighters_db
-    )
-    
-    # Handle unmatched fighters
-    if no_matches_df is not None and not no_matches_df.empty:
-        print("Processing unmatched fighters...")
-        
-        # Prepare unmatched fighters
-        no_matches_df = processor.prepare_unmatched_fighters(no_matches_df, fighter_output_df)
-        
-        # Insert new fighters into database
-        success_count, failed_rows = db_manager.insert_new_fighters(no_matches_df)
-        
-        # Prepare names for scraping (URL format)
-        athlete_names = scraping_manager.prepare_fighter_names_for_scraping(no_matches_df)
-        
-        print(f"Found {len(athlete_names)} new fighters to scrape")
-        return athlete_names, stats
-    else:
-        print("No unmatched fighters found.")
-        return [], stats
 
 def main():
     """Main execution function for standalone use"""
