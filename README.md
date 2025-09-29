@@ -1,7 +1,7 @@
 # UFC Predictor End-To-End Project 🥊
 
 This project predicts UFC fight winners using machine learning models trained on scraped data from the official UFC website.
-It achieves a 70% accuracy and F1 score, one of the highest in any repo to date.
+It achieves a ~70% accuracy and F1 score, one of the highest in any repo to date.
 The project covers the data scraping, database usage, data exploration, cleaning, training, evaluation and local hosting. 
 
 ## 📌 Features
@@ -17,32 +17,54 @@ The project covers the data scraping, database usage, data exploration, cleaning
 
 ```
 .
-├── .env                       # Environment variables (DB credentials, configs)
-├── .gitignore                 # Git ignore rules
-├── .vscode/                   # Editor settings
-│   └── settings.json
-├── DB_connections/            # Scripts for database creation and updates
+├── .env
+├── .gitignore
+├── DB_connections
 │   ├── append_events_DB.py
 │   ├── append_fighters_DB.py
 │   ├── append_stats_DB.py
 │   ├── create_events_table_DB.py
 │   ├── create_fighter_table_DB.py
 │   └── create_stats_table_DB.py
-├── data/                      # Raw and processed datasets
+├── LICENSE
+├── README.md
+├── app
+│   ├── app.py
+│   ├── app_flask.py
+│   ├── static
+│   │   └── ufc_logo.png
+│   └── templates
+│       └── index.html
+├── data
 │   ├── events.csv
 │   ├── fighters.csv
-│   ├── stats.csv
-│   └── notebooks/             # Intermediate processed datasets from notebooks
-│       ├── df_processed.csv
-│       ├── events_cleaned.csv
-│       ├── features_difference.csv
-│       ├── features_selected.csv
-│       ├── merged_clean.csv
-│       ├── stats_cleaned.csv
-│       ├── temporal_features.csv
-│       ├── temporal_features_clean.csv
-│       └── top_features.csv
-├── models/                    # Trained models and preprocessing objects
+│   ├── notebooks
+│   │   ├── df_processed.csv
+│   │   ├── events_cleaned.csv
+│   │   ├── features_difference.csv
+│   │   ├── features_selected.csv
+│   │   ├── merged_clean.csv
+│   │   ├── stats_cleaned.csv
+│   │   ├── temporal_features.csv
+│   │   ├── temporal_features_clean.csv
+│   │   └── top_features.csv
+│   └── stats.csv
+├── docs
+│   ├── adaboost.md
+│   ├── decision_tree.md
+│   ├── ema.md
+│   ├── gradient_boosting.md
+│   ├── hyperparameter_tuning.md
+│   ├── knn.md
+│   ├── logistic_regression.md
+│   ├── momentum.md
+│   ├── naive_bayes.md
+│   ├── neural_network.md
+│   ├── random_forest.md
+│   ├── sgd.md
+│   ├── svm.md
+│   └── xgboost.md
+├── models
 │   ├── PyTorch_state_dict.pth
 │   ├── adaboostclassifier.pkl
 │   ├── decisiontreeclassifier.pkl
@@ -58,26 +80,22 @@ The project covers the data scraping, database usage, data exploration, cleaning
 │   ├── sgdclassifier.pkl
 │   ├── svc.pkl
 │   └── xgbclassifier.pkl
-├── notebooks/                 # Jupyter notebooks
+├── notebooks
 │   ├── 1_etl.ipynb
 │   ├── 2_eda.ipynb
 │   ├── 3_feature_engineering.ipynb
 │   ├── 4_feature_selection.ipynb
 │   ├── 5_trainning.ipynb
-│   ├── 6_evaluating.ipynb
-│   └── 7_reverse_engineer.ipynb
-├── scrape_data/               # Scraping and updating scripts
-│   ├── compare_update_fighters.py
-│   ├── get_events.py
-│   ├── get_fighters.py
-│   ├── get_stats.py
-│   ├── update_events.py
-│   ├── update_fighters.py
-│   └── update_stats.py
-├── requirements.txt           # Python dependencies
-├── test.py                    # Test script
-├── LICENSE
-└── README.md
+│   └── 6_predicting.ipynb
+├── requirements.txt
+└── scrape_data
+    ├── compare_update_fighters.py
+    ├── get_events.py
+    ├── get_fighters.py
+    ├── get_stats.py
+    ├── update_events.py
+    ├── update_fighters.py
+    └── update_stats.py
 ```
 
 ## Installation
@@ -145,7 +163,7 @@ It also utilizes name normalization and matching due to the different nature of 
 After scrapping all available data and analyzing it. It is noticed that some older events have some missing values.
 The biggest issue are the fighter stats, which are a bit neglected and many issues with full name and nickname normalization.
 
-**Explore data and train models:** Open the Jupyter notebooks in the `notebooks/` folder in order (1 → 7).
+**Explore data and train models:** Open the Jupyter notebooks in the `notebooks/` folder in order (1 → 6).
 
 **Evaluate models:** Models are stored in `models/` and can be loaded for prediction.
 
@@ -160,7 +178,7 @@ python app/app.py
 ```bash
 python app/app_flask.py
 ```
-**Docs:** Documentation do the models and methodologies
+**Docs:** Documentation of the models and methodologies
 
 ## 📊 Results
 
@@ -182,9 +200,9 @@ python app/app_flask.py
 
 * Scrape and use betting data
 * Explore more models
-* Explore more and perform different feature engineering techniques
+* Explore and perform different feature engineering techniques
 * Add a logger and more error logic
-* Host app
+* Host app in cloud
 * Cache data while scrapping
 * Create a more interactive UI
 * Handle fighters with 1 fight

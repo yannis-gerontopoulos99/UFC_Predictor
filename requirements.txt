@@ -11,6 +11,5 @@ xgboost
 torch
 python-dotenv
 rapidfuzz
-pickle
 flask
 flask_cors

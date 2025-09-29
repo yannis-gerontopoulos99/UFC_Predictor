@@ -1,7 +1,7 @@
 .vscode
 myenv
 Local.session.sql
-test.py
+tree.py
 .env
 app/__pycache__
 scrape_data/__pycache__
