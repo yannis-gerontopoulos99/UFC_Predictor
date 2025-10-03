@@ -13,6 +13,8 @@ The project covers the data scraping, database usage, data exploration, cleaning
 * **Machine Learning Models**: Trains multiple classifiers (Random Forest, XGBoost, Logistic Regression, SVM, PyTorch, etc.) with standardization, and feature selection.
 * **Performance**: Achieves ~70% accuracy, precision, and recall on historical and real-world test cases.
 
+![App Screenshot](images/interface.png)
+
 ## 🗂️ Project Structure
 
 ```
