@@ -38,18 +38,6 @@ def extract_fighters(temp_file='data/temp_bouts.csv'):
 failed_urls = []
 successful_names = []
 
-
-import pandas as pd
-import mysql.connector
-from mysql.connector import Error
-from rapidfuzz import fuzz
-import os
-from dotenv import load_dotenv
-import unicodedata
-import re
-
-load_dotenv()
-
 def normalize_name(name):
     """Normalize fighter names for comparison"""
     if pd.isna(name):
