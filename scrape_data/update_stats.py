@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from rapidfuzz import fuzz
 import unicodedata
 import re
-from compare_update_fighters import process_fighters_and_get_new_names
+from compare_update_fighters import process_fighters_and_get_new_names, run_fighter_scraping
 
 load_dotenv()  # load variables from .env file
 
@@ -33,10 +33,6 @@ def extract_fighters(temp_file='data/temp_bouts.csv'):
     fighter_output_df = pd.DataFrame({'fighter': fighter_series})
 
     return fighter_output_df
-
-# Track failed URLs and reasons
-failed_urls = []
-successful_names = []
 
 def normalize_name(name):
     """Normalize fighter names for comparison"""
@@ -116,7 +112,7 @@ def fuzzy_match_athlete_names(athlete_names, threshold=85):
         best_db_name = None
         
         # Find best match in database
-        for j, (db_name, normalized_db_name) in enumerate(zip(db_fighters, normalized_db_names)):
+        for (db_name, normalized_db_name) in enumerate(zip(db_fighters, normalized_db_names)):
             if not normalized_db_name.strip():
                 continue
                 
@@ -204,6 +200,10 @@ def cleanup_athlete_names_before_scraping(athlete_names):
     print(f"Cleaned athlete names: {cleaned_names}")
     
     return cleaned_names
+
+# Track failed URLs and reasons
+failed_urls = []
+successful_names = []
 
 # Scraping method
 class UfcAthleteSpider(scrapy.Spider):
@@ -562,9 +562,19 @@ if __name__ == "__main__":
         fighters_csv = fighter_output_df.applymap(lambda x: x.lower().replace(' ', '-'))
         athlete_names = fighters_csv['fighter'].to_list()
     else:
-        print(f"Found {len(athlete_names)} fighters to update from database comparison")
+        print(f"Found {len(athlete_names)} fighters to insert from database comparison")
         # Convert athlete_names to URL format if they're not already
-        athlete_names = [name.lower().replace(' ', '-') if ' ' in name else name for name in athlete_names]
+        run_fighter_scraping(athlete_names)
+
+        # Nomralize fighter names in the original DF
+        fighter_output_df['fighter'] = fighter_output_df['fighter'].str.lower().str.replace(' ', '-')
+        
+        # Filter DF: keep only those NOT in the athlete_names list we just scraped
+        fighter_output_df = fighter_output_df[~fighter_output_df['fighter'].isin(athlete_names)]
+        
+        print(f"Remaining fighters in list after removing new entries: {len(fighter_output_df)}")
+        fighters_csv = fighter_output_df.applymap(lambda x: x.lower().replace(' ', '-'))
+        athlete_names = fighters_csv['fighter'].to_list()
 
     # Step 4: Fuzzy match names
     athlete_names = cleanup_athlete_names_before_scraping(athlete_names)
