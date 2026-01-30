@@ -37,5 +37,5 @@ cursor.close()
 conn.close()
 
 print("Finished Updating DB")
-print("New Entries addded:", len(success_count))
+print("New Entries addded:", success_count)
 print("Failed entries:", len(failed_rows))

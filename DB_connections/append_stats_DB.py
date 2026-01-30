@@ -7,7 +7,7 @@ import mysql.connector
 from dotenv import load_dotenv
 
 # Read fighter names
-input_csv = 'data/temp_fighters.csv' 
+input_csv = 'data/fighters.csv' 
 fighters_csv = pd.read_csv(input_csv)
 fighters_csv = fighters_csv.applymap(lambda x: x.lower().replace(' ', '-'))
 athlete_names = fighters_csv['fighter'].to_list()
@@ -313,11 +313,12 @@ class MySQLStorePipeline:
 
 if __name__ == "__main__":
 
+    temp_file = 'data/temp_stats.csv'
     start_time = time.time()
 
     process = CrawlerProcess(settings={
     "FEEDS": {
-        "output.csv": {
+        temp_file: {
             "format": "csv",
             "encoding": "utf8",
             "overwrite": True,
@@ -347,3 +348,6 @@ if __name__ == "__main__":
     end_time = time.time()
     elapsed_time = end_time - start_time
     print(f"Scraping completed in {elapsed_time:.2f} seconds.")
+
+    # Remove temporarily file
+    os.remove(temp_file)
