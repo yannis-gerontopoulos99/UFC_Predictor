@@ -1,4 +1,5 @@
 requests
+python-dotenv
 lxml
 scrapy
 pandas
@@ -13,3 +14,4 @@ python-dotenv
 rapidfuzz
 flask
 flask_cors
+nvidia-ml-py
