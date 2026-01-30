@@ -96,7 +96,7 @@ class DatabaseManager:
         df_events["weight_class"] = df_events["weight_class"].apply(self._normalize_weight_class)
         
         # Drop ID column and reset index
-        df_events.drop(columns=['id'], axis=1, inplace=True, errors='ignore')
+        df_events.drop(columns=['id'], inplace=True, errors='ignore')
         df_events = df_events.reset_index(drop=True)
         
         return df_events
@@ -1140,7 +1140,7 @@ class UFCPredictionPipeline:
                 
             except Exception as e:
                 print(f"Error with model {model_path}: {str(e)}")
-        
+        '''
         # Calculate ensemble prediction
         if results:
             avg_red_prob = np.mean([r['fighter_red_win_prob'] for r in results])
@@ -1157,9 +1157,9 @@ class UFCPredictionPipeline:
             print(f"Fighter Red probability: {avg_red_prob:.3f}")
             print(f"Fighter Blue probability: {avg_blue_prob:.3f}")
             print(f"Models used: {len(results)}")
-        
+        '''
         return results
-
+        
     
     def run_complete_pipeline(self, model_paths: List[Tuple[str, str]] = None):
         """Run the complete prediction pipeline"""
@@ -1173,12 +1173,12 @@ class UFCPredictionPipeline:
                 #('models/adaboostclassifier.pkl', 'auto'),
                 #('models/decisiontreeclassifier.pkl', 'auto'),
                 #('models/gaussiannb.pkl', 'auto'),
-                ('models/gradientboostingclassifier.pkl', 'auto'),
+                #('models/gradientboostingclassifier.pkl', 'auto'),
                 #('models/kneighborsclassifier.pkl', 'auto'),
-                ('models/logisticregression.pkl', 'auto'),
-                ('models/PyTorch_state_dict.pth', 'Neural Network'),
-                ('models/randomforestclassifier.pkl', 'auto'),
-                ('models/sgdclassifier.pkl', 'auto'),
+                #('models/logisticregression.pkl', 'auto'),
+                #('models/PyTorch_state_dict.pth', 'Neural Network'),
+                #('models/randomforestclassifier.pkl', 'auto'),
+                #('models/sgdclassifier.pkl', 'auto'),
                 ('models/svc.pkl', 'auto'),
                 #('models/xgbclassifier.pkl', 'auto')
             ]
