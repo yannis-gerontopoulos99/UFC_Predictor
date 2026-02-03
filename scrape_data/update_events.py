@@ -479,6 +479,9 @@ if __name__ == "__main__":
 
         # Overwrite temp_file with only new rows
         temp_filtered_df.to_csv(temp_file, index=False)
+        # Sort the DataFrame ascending by event_date
+        temp_df['event_date'] = pd.to_datetime(temp_df['event_date'])
+        temp_df = temp_df.sort_values(by='event_date', ascending=True)
 
         if len(temp_filtered_df) > 0:
             # Use csv
@@ -500,7 +503,6 @@ if __name__ == "__main__":
             print(f"Updated data saved to: {os.path.abspath(output_file)}")
             print("Number of new fights added: ", len(temp_filtered_df))
             '''
-
             # Run script to INSERT INTO new events to DB
             subprocess.run(['python', 'DB_connections/append_events_DB.py'], check=True)
             # Run script to UPDATE stats of the fighters in the new events DB
