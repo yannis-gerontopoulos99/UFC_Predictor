@@ -113,7 +113,7 @@ def fuzzy_match_athlete_names(athlete_names, threshold=85):
         
         # Find best match in database
         for (db_name, normalized_db_name) in enumerate(zip(db_fighters, normalized_db_names)):
-            if not normalized_db_name.strip():
+            if not normalized_db_name[0].strip():
                 continue
                 
             # Calculate similarity scores
@@ -559,7 +559,7 @@ if __name__ == "__main__":
     # Step 3: Convert to UFC-style URLs (only if athlete_names is empty from Step 2)
     if not athlete_names:
         print("No new fighters found from database comparison")
-        fighters_csv = fighter_output_df.applymap(lambda x: x.lower().replace(' ', '-'))
+        fighters_csv = fighter_output_df.map(lambda x: x.lower().replace(' ', '-'))
         athlete_names = fighters_csv['fighter'].to_list()
     else:
         print(f"Found {len(athlete_names)} fighters to insert from database comparison")
@@ -573,7 +573,7 @@ if __name__ == "__main__":
         fighter_output_df = fighter_output_df[~fighter_output_df['fighter'].isin(athlete_names)]
         
         print(f"Remaining fighters in list after removing new entries: {len(fighter_output_df)}")
-        fighters_csv = fighter_output_df.applymap(lambda x: x.lower().replace(' ', '-'))
+        fighters_csv = fighter_output_df.map(lambda x: x.lower().replace(' ', '-'))
         athlete_names = fighters_csv['fighter'].to_list()
 
     # Step 4: Fuzzy match names
