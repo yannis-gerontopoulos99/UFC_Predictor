@@ -3,9 +3,13 @@ import mysql.connector
 import os
 from dotenv import load_dotenv
 
+load_dotenv()
+
 # Load CSV
 temp_df = pd.read_csv('data/temp_bouts.csv')
-load_dotenv()
+
+# Handle missing values for MYSQL
+temp_df = temp_df.astype(object).where(pd.notnull(temp_df), None)
 
 # Connect to MySQL
 conn = mysql.connector.connect(
