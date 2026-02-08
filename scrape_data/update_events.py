@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import os
 from dotenv import load_dotenv
@@ -75,6 +75,18 @@ class BoutScraperItem(Item):
 class Bouts(scrapy.Spider):
     name = 'boutSpider'
 
+    def __init__(self, latest_event_date=None, *args, **kwargs):
+        super(Bouts, self).__init__(*args, **kwargs)
+        # Handle latest date from DB
+        # Initialize as None by default
+        self.last_scraped_date = None
+        
+        if latest_event_date is not None:
+            if hasattr(latest_event_date, 'date'):
+                self.last_scraped_date = latest_event_date.date()
+            else:
+                self.last_scraped_date = datetime.strptime(latest_event_date, '%Y-%m-%d').date()
+
     def start_requests(self):
         # Start scraping from the ufc completed events page
         start_urls = [
@@ -85,19 +97,34 @@ class Bouts(scrapy.Spider):
             yield scrapy.Request(url=url, callback=self.parse)
 
     def parse(self, response):
-        # Get all event blocks (name and link are in the same <a>)
-        event_anchors = response.css('a.b-link.b-link_style_black')
-        
-        for anchor in event_anchors:
+        rows = response.css('tr.b-statistics__table-row')[1:]
+
+        for row in rows:
+            date_str = row.css('span.b-statistics__date::text').get(default='').strip()
+            if not date_str:
+                continue
+
+            try:
+                current_event_date = datetime.strptime(date_str, '%B %d, %Y').date()
+            except ValueError:
+                continue
+
+            # ONLY perform the stop logic if we actually have a date to compare against
+            if self.last_scraped_date is not None:
+                if current_event_date <= self.last_scraped_date:
+                    self.logger.info(f"Stopping: {date_str} is already in the database.")
+                    return 
+
+            # If last_scraped_date is None, or if current_event_date is newer:
+            anchor = row.css('a.b-link.b-link_style_black')
             event_url = anchor.css('::attr(href)').get()
             event_name = anchor.css('::text').get(default='').strip()
-            
-            # Only proceed if both url and name exist
-            if event_url and event_name:
+
+            if event_url:
                 yield scrapy.Request(
                     url=event_url,
                     callback=self.parse_event,
-                    meta={'event_name': event_name}
+                    meta={'event_name': event_name, 'event_date': date_str}
                 )
 
     def parse_event(self, response):
@@ -243,7 +270,7 @@ class Bouts(scrapy.Spider):
                     time_text = detail.css('::text').re_first(r'\d+:\d+')
                     if time_text:
                         minutes, seconds = map(int, time_text.split(':'))
-                        item['time'] = int(datetime.timedelta(minutes=minutes, seconds=seconds).total_seconds())
+                        item['time'] = int(timedelta(minutes=minutes, seconds=seconds).total_seconds())
 
         # Weight class
         weight_class = response.xpath("string(//i[@class='b-fight-details__fight-title'])").get()
