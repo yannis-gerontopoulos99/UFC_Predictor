@@ -704,39 +704,55 @@ class ModelPredictor:
         else:
             return self._predict_sklearn(model, features)
     
-    def _predict_sklearn(self, model, features: Dict) -> Dict:
-        """Handle sklearn-compatible models"""
-        feature_names = list(features.keys())
-        feature_values = list(features.values())
-        X = pd.DataFrame([feature_values], columns=feature_names)
+    def _predict_sklearn(self, model, fighter_differences):
+        """Handle sklearn-compatible models with forced label consistency"""
+        features = list(fighter_differences.values())
+        feature_names = list(fighter_differences.keys())
+        X = pd.DataFrame([features], columns=feature_names)
         
-        prediction = model.predict(X)[0]
+        # 1. Get raw prediction as a baseline
+        raw_prediction = model.predict(X)[0]
         
+        fighter_red_prob = 0.0
+        fighter_blue_prob = 0.0
+
+        # 2. Extract Probabilities with Dynamic Mapping
         try:
-            probabilities = model.predict_proba(X)[0]
-            if len(probabilities) > 1:
-                fighter_red_prob = probabilities[1]
-                fighter_blue_prob = probabilities[0]
-            else:
-                fighter_red_prob = probabilities[0]
-                fighter_blue_prob = 1 - probabilities[0]
-            confidence = max(probabilities)
-        except AttributeError:
+            probs = model.predict_proba(X)[0]
+            # model.classes_ might be [0, 1] or [1, 0]
+            classes = model.classes_.tolist()
+            
+            # Find which index corresponds to which class
+            # Using strings to be safe if labels were saved as strings
+            red_idx = classes.index(1) if 1 in classes else classes.index('1')
+            blue_idx = classes.index(0) if 0 in classes else classes.index('0')
+            
+            fighter_red_prob = probs[red_idx]
+            fighter_blue_prob = probs[blue_idx]
+            
+            # FORCE prediction to follow the higher probability
+            prediction = 1 if fighter_red_prob > fighter_blue_prob else 0
+            
+        except (AttributeError, ValueError, KeyError):
             try:
+                # Fallback for SVC without probability=True
                 decision_score = model.decision_function(X)[0]
                 fighter_red_prob = 1 / (1 + np.exp(-decision_score))
                 fighter_blue_prob = 1 - fighter_red_prob
-                confidence = max(fighter_red_prob, fighter_blue_prob)
-            except AttributeError:
-                fighter_red_prob = float(prediction)
-                fighter_blue_prob = 1.0 - float(prediction)
-                confidence = 1.0
+                prediction = 1 if fighter_red_prob > 0.5 else 0
+            except:
+                # Total fallback
+                prediction = raw_prediction
+                fighter_red_prob = 1.0 if prediction == 1 else 0.0
+                fighter_blue_prob = 1.0 - fighter_red_prob
+
+        confidence = fighter_red_prob if prediction == 1 else fighter_blue_prob
         
         return {
-            'prediction': prediction,
-            'fighter_red_win_prob': fighter_red_prob,
-            'fighter_blue_win_prob': fighter_blue_prob,
-            'confidence': confidence,
+            'prediction': int(prediction),
+            'fighter_red_win_prob': float(fighter_red_prob),
+            'fighter_blue_win_prob': float(fighter_blue_prob),
+            'confidence': float(confidence),
             'model_name': type(model).__name__
         }
     
@@ -922,48 +938,51 @@ class UFCPredictionPipeline:
         return filtered_data
     
     def _add_prediction_row(self, df: pd.DataFrame, fighter_names: List[str]) -> pd.DataFrame:
-        """Add a new row for the upcoming fight prediction"""
+        """Add a new row for the upcoming fight prediction with latest stats regardless of corner"""
         red_fighter, blue_fighter = fighter_names[0], fighter_names[1]
-        
-        # Define columns for each fighter
-        red_columns = [
-            'sig_strikes_landed_per_minute_red', 'sig_strikes_absorbed_per_minute_red', 
-            'takedowns_avg_red', 'submission_avg_red', 'knockdown_avg_red', 'fight_time_avg_red',
-            'stance_red', 'octagon_debut_red', 'height_red', 'weight_red', 'reach_red', 'leg_reach_red'
+
+        # Define the base feature names (without corner suffixes)
+        base_features = [
+            'sig_strikes_landed_per_minute', 'sig_strikes_absorbed_per_minute', 
+            'takedowns_avg', 'submission_avg', 'knockdown_avg', 'fight_time_avg',
+            'stance', 'octagon_debut', 'height', 'weight', 'reach', 'leg_reach'
         ]
-        
-        blue_columns = [
-            'sig_strikes_landed_per_minute_blue', 'sig_strikes_absorbed_per_minute_blue', 
-            'takedowns_avg_blue', 'submission_avg_blue', 'knockdown_avg_blue', 'fight_time_avg_blue',
-            'stance_blue', 'octagon_debut_blue', 'height_blue', 'weight_blue', 'reach_blue', 'leg_reach_blue'
-        ]
-        
-        # Get last rows for each fighter
-        last_red_row = df[df['fighter_red'] == red_fighter].iloc[-1] if len(df[df['fighter_red'] == red_fighter]) > 0 else None
-        last_blue_row = df[df['fighter_blue'] == blue_fighter].iloc[-1] if len(df[df['fighter_blue'] == blue_fighter]) > 0 else None
-        
-        # Create new row data
+
+        # Initialize new row with metadata
         new_row_data = {
             'event_date': pd.to_datetime('today').date(),
             'fighter_red': red_fighter,
             'fighter_blue': blue_fighter,
         }
+
+        # Helper to find latest stats and map them to the target corner
+        for current_name, target_corner in [(red_fighter, 'red'), (blue_fighter, 'blue')]:
+            # 1. Find the latest fight involving this specific fighter
+            fighter_fights = df[(df['fighter_red'] == current_name) | (df['fighter_blue'] == current_name)]
+            
+            if not fighter_fights.empty:
+                last_fight = fighter_fights.iloc[-1]
+                
+                # 2. Identify which corner they were in during that last fight
+                actual_side_in_last_fight = 'red' if last_fight['fighter_red'] == current_name else 'blue'
+                
+                # 3. Map the stats from the actual side to our target side
+                for base in base_features:
+                    source_col = f"{base}_{actual_side_in_last_fight}"
+                    target_col = f"{base}_{target_corner}"
+                    
+                    if source_col in last_fight:
+                        new_row_data[target_col] = last_fight[source_col]
+                
+                # 4. Special case: Grab weight_class from the blue fighter's history
+                if target_corner == 'blue' and 'weight_class' in last_fight:
+                    new_row_data['weight_class'] = last_fight['weight_class']
+
+        # Convert dictionary to DataFrame row and append
+        new_row_df = pd.DataFrame([new_row_data])
+        df = pd.concat([df, new_row_df], ignore_index=True)
         
-        # Copy stats from last fights
-        if last_red_row is not None:
-            for col in red_columns:
-                if col in df.columns:
-                    new_row_data[col] = last_red_row[col]
-        
-        if last_blue_row is not None:
-            for col in blue_columns:
-                if col in df.columns:
-                    new_row_data[col] = last_blue_row[col]
-            if 'weight_class' in df.columns:
-                new_row_data['weight_class'] = last_blue_row['weight_class']
-        
-        # Add the new row
-        df = pd.concat([df, pd.DataFrame([new_row_data])], ignore_index=True)
+        # Final cleanup of date formatting
         df['event_date'] = pd.to_datetime(df['event_date'], errors='coerce').dt.date
         
         return df
