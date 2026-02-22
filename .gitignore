@@ -5,3 +5,4 @@ tree.py
 .env
 app/__pycache__
 scrape_data/__pycache__
+app_predictor/__pycache__
