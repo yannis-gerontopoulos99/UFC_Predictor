@@ -6,7 +6,6 @@ import numpy as np
 import unicodedata
 import re
 from rapidfuzz import fuzz
-from sklearn.impute import KNNImputer
 from typing import Dict, List, Tuple, Optional
 from sklearn.preprocessing import OneHotEncoder
 import pickle
@@ -15,6 +14,7 @@ import torch.nn as nn
 from pathlib import Path
 import joblib
 from difflib import SequenceMatcher
+from typing import Union
 
 class DatabaseManager:
     """Handles all database operations and data loading"""
@@ -1157,7 +1157,7 @@ class UFCPredictionPipeline:
         '''
         return results
 
-    def run_batch_pipeline(self, input_csv: str, output_csv: str):
+    def run_batch_pipeline(self, input_source: Union[str, pd.DataFrame], output_csv: str = None):
         """
         Processes multiple fights from a CSV and saves predictions.
         Input CSV expected columns: event_date, event_name, fighter_blue, fighter_red, weight_class
@@ -1167,13 +1167,26 @@ class UFCPredictionPipeline:
         print("="*60)
         print("UFC FIGHT PREDICTION PIPELINE")
         print("="*60)
-        
+
         # 1. Setup Data
         self.load_data()
         self.merge_data()
-        
-        # Load the fights you want to predict
-        upcoming_fights = pd.read_csv(input_csv)
+
+        # 2. Smart Loading Logic
+        if isinstance(input_source, str):
+            # It's a path, so load it
+            upcoming_fights = pd.read_csv(input_source)
+        else:
+            # It's already a DataFrame (from MySQL or elsewhere)
+            upcoming_fights = input_source
+
+        # Ensure column consistency
+        has_actual_winner = 'winner' in upcoming_fights.columns
+    
+        required_cols = ['event_date', 'event_name', 'fighter_blue', 'fighter_red', 'weight_class']
+        if has_actual_winner:
+            required_cols.append('winner')
+        upcoming_fights = upcoming_fights[required_cols]
         all_results = []
 
         print(f"--- Processing {len(upcoming_fights)} fights ---")
@@ -1193,7 +1206,7 @@ class UFCPredictionPipeline:
             
             # Check if we have any historical data for these fighters
             if filtered_data.empty:
-                print(f"⚠ Skipping {row['fighter_red']} vs {row['fighter_blue']} - No fighter history found in database")
+                print(f"Skipping {row['fighter_red']} vs {row['fighter_blue']} - No fighter history found in database")
                 all_results.append({
                     'event_date': row['event_date'],
                     'event_name': row['event_name'],
@@ -1217,7 +1230,7 @@ class UFCPredictionPipeline:
             features = self.prepare_for_prediction(processed_data)
             
             # Get the SVC prediction
-            res = self.predict_single_model(features, 'models/svc.pkl', 'auto')
+            res = self.predict_single_model(features, 'models/logisticregression.pkl', 'auto')
 
             # Step D: Map result back to fighter names
             prediction_label = res['prediction']  # 1 for Red, 0 for Blue
@@ -1231,10 +1244,15 @@ class UFCPredictionPipeline:
                 'fighter_blue': row['fighter_blue'],
                 'weight_class': row['weight_class'],
                 'predicted_winner': winner_name,
-                'confidence': round(res['confidence'], 4)
+                'confidence': round(res['confidence'], 3)
             })
+
+            # If the actual winner is known (MySQL), append it for comparison
+            if has_actual_winner:
+                all_results[-1]['winner'] = row['winner']
+
             
-            print(f"✓ {row['fighter_red']} vs {row['fighter_blue']}: {winner_name} ({res['confidence']:.1%})")
+            #print(f"{row['fighter_red']} vs {row['fighter_blue']}: {winner_name} ({res['confidence']:.1%})")
 
         # 2. Save Results
         results_df = pd.DataFrame(all_results)
@@ -1248,7 +1266,7 @@ class UFCPredictionPipeline:
 if __name__ == "__main__":
     # Create and run the pipeline
     pipeline = UFCPredictionPipeline()
-    pipeline.run_batch_pipeline("data\\upcoming_events.csv", "data\\ufc_predictions_final.csv")
+    pipeline.run_batch_pipeline("data\\upcoming_events.csv", "data\\final_predictions.csv")
     
     # You can also run individual steps:
     # pipeline.load_data()
