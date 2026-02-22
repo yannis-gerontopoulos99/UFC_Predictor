@@ -1,6 +1,4 @@
 import pandas as pd
-import os
-import time
 import scrapy
 from scrapy.crawler import CrawlerProcess
 from scrapy.item import Item, Field
@@ -16,15 +14,12 @@ class Bouts(scrapy.Spider):
     name = 'boutSpider'
 
     def start_requests(self):
-        # Using the main schedule page
         yield scrapy.Request(url='http://ufcstats.com/statistics/events/upcoming', callback=self.parse)
 
     def parse(self, response):
-        # 1. Find the event link (the href on the name)
-        # Note: We take the first one [0] if you only want the most recent upcoming/completed event
         event_anchors = response.css('a.b-link.b-link_style_black')
         
-        for anchor in event_anchors: # Scraping only the top event for testing
+        for anchor in event_anchors:
             event_url = anchor.css('::attr(href)').get()
             event_name = anchor.css('::text').get(default='').strip()
             
