@@ -1,0 +1,26 @@
+event_date,event_name,fighter_red,fighter_blue,weight_class,predicted_winner,confidence,winner
+2026-02-07,UFC Fight Night: Bautista vs. Oliveira,Alex Morono,Daniil Donchenko,Welterweight,Daniil Donchenko,0.853,Daniil Donchenko
+2026-02-07,UFC Fight Night: Bautista vs. Oliveira,Klaudia Sygula,Priscila Cachoeira,Women's Bantamweight,Klaudia Sygula,0.907,Klaudia Sygula
+2026-02-07,UFC Fight Night: Bautista vs. Oliveira,Nikolay Veretennikov,Niko Price,Welterweight,Nikolay Veretennikov,0.586,Nikolay Veretennikov
+2026-02-07,UFC Fight Night: Bautista vs. Oliveira,Amir Albazi,Kyoji Horiguchi,Flyweight,Kyoji Horiguchi,0.835,Kyoji Horiguchi
+2026-02-07,UFC Fight Night: Bautista vs. Oliveira,Mario Bautista,Vinicius Oliveira,Bantamweight,Vinicius Oliveira,0.633,Mario Bautista
+2026-02-07,UFC Fight Night: Bautista vs. Oliveira,Jailton Almeida,Rizvan Kuniev,Heavyweight,Rizvan Kuniev,0.662,Rizvan Kuniev
+2026-02-07,UFC Fight Night: Bautista vs. Oliveira,Michal Oleksiejczuk,Marc-Andre Barriault,Middleweight,Michal Oleksiejczuk,0.575,Michal Oleksiejczuk
+2026-01-31,UFC 325: Volkanovski vs. Lopes 2,Sulangrangbo,Lawrence Lui,Road to UFC 4 Bantamweight Tournament Title,Sulangrangbo,0.51,Lawrence Lui
+2026-01-31,UFC 325: Volkanovski vs. Lopes 2,Junior Tafa,Billy Elekana,Light Heavyweight,Billy Elekana,0.622,Billy Elekana
+2026-01-31,UFC 325: Volkanovski vs. Lopes 2,Cam Rowston,Cody Brundage,Middleweight,Cam Rowston,0.868,Cam Rowston
+2026-01-31,UFC 325: Volkanovski vs. Lopes 2,Jonathan Micallef,Oban Elliott,Welterweight,Oban Elliott,0.603,Jonathan Micallef
+2026-01-31,UFC 325: Volkanovski vs. Lopes 2,Kaan Ofli,Yizha,Featherweight,Yizha,0.653,Kaan Ofli
+2026-01-31,UFC 325: Volkanovski vs. Lopes 2,Rafael Fiziev,Mauricio Ruffy,Lightweight,Rafael Fiziev,0.526,Mauricio Ruffy
+2026-01-31,UFC 325: Volkanovski vs. Lopes 2,Jacob Malkoun,Torrez Finney,Middleweight,Jacob Malkoun,0.736,Jacob Malkoun
+2026-01-24,UFC 324: Gaethje vs. Pimblett,Nikita Krylov,Modestas Bukauskas,Light Heavyweight,Nikita Krylov,0.683,Nikita Krylov
+2026-01-24,UFC 324: Gaethje vs. Pimblett,Ateba Gautier,Andrey Pulyaev,Middleweight,Ateba Gautier,0.694,Ateba Gautier
+2026-01-24,UFC 324: Gaethje vs. Pimblett,Sean O'Malley,Song Yadong,Bantamweight,Sean O'Malley,0.706,Sean O'Malley
+2026-01-24,UFC 324: Gaethje vs. Pimblett,Josh Hokit,Denzel Freeman,Heavyweight,Josh Hokit,0.948,Josh Hokit
+2026-01-24,UFC 324: Gaethje vs. Pimblett,Arnold Allen,Jean Silva,Featherweight,Arnold Allen,0.519,Jean Silva
+2026-01-24,UFC 324: Gaethje vs. Pimblett,Umar Nurmagomedov,Deiveson Figueiredo,Bantamweight,Umar Nurmagomedov,0.691,Umar Nurmagomedov
+2026-01-24,UFC 324: Gaethje vs. Pimblett,Natalia Silva,Rose Namajunas,Women's Flyweight,Natalia Silva,0.569,Natalia Silva
+2026-01-24,UFC 324: Gaethje vs. Pimblett,Justin Gaethje,Paddy Pimblett,UFC Interim Lightweight Title,Justin Gaethje,0.518,Justin Gaethje
+2026-01-24,UFC 324: Gaethje vs. Pimblett,Waldo Cortes Acosta,Derrick Lewis,Heavyweight,Waldo Cortes Acosta,0.88,Waldo Cortes Acosta
+2026-01-24,UFC 324: Gaethje vs. Pimblett,Alex Perez,Charles Johnson,Flyweight,Charles Johnson,0.696,Alex Perez
+2026-01-24,UFC 324: Gaethje vs. Pimblett,Adam Fugitt,Ty Miller,Welterweight,Ty Miller,0.849,Ty Miller
