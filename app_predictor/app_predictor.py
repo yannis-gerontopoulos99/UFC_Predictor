@@ -4,51 +4,10 @@ import os
 import pandas as pd
 import re
 from datetime import datetime
+import subprocess
+import sys
 
 from batch_predictor import UFCPredictionPipeline
-from get_upcoming_event import Bouts
-from scrapy.crawler import CrawlerProcess
-
-def scrape_upcoming_event():
-    output_file = "data/upcoming_events.csv"
-
-    process = CrawlerProcess(settings={
-    "FEEDS": {
-        output_file: {
-            'format': 'csv',
-            'encoding': 'utf8',
-            'overwrite': True,
-            'store_empty': True   # ensures headers are written even if no items
-        },
-    },
-    "USER_AGENT": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-        'AppleWebKit/537.36 ' '(KHTML, like Gecko) '
-        'Chrome/115.0.0.0 Safari/537.36',
-        "ROBOTSTXT_OBEY": False,
-        "LOG_LEVEL": "INFO",
-        "RETRY_ENABLED": True,
-        "RETRY_HTTP_CODES": [403, 500, 502, 503, 504],
-        "DOWNLOAD_TIMEOUT": 15
-    })
-
-    process.crawl(Bouts)
-    process.start() 
-
-    df = pd.read_csv(output_file)
-    # Reorder columns
-    df = df[['event_date','event_name','fighter_red','fighter_blue','weight_class']]
-    df['event_date'] = pd.to_datetime(df['event_date'], format='%B %d, %Y')
-    df.sort_values(by='event_date', ascending=True, inplace=True)
-
-    upcoiming_event_date = df['event_date'].iloc[0]
-    print(f"Upcoming event date: {upcoiming_event_date}")
-    # Filter DF to only include rows with the upcoming event date
-    df = df[df['event_date'] == upcoiming_event_date]
-
-    df.to_csv(output_file, index=False)
-    print(f"Success! Saved to {output_file}")
-    
-    return output_file
 
 def mysql_conn(event_date):
     load_dotenv()
@@ -122,6 +81,26 @@ def get_clean_date():
         except ValueError:
             print(f"Invalid format: '{user_input}'. Please use YYYY-MM-DD (e.g., 2025-12-13).")
 
+def run_scraper_in_subprocess():
+    """Run the scraper in a separate subprocess to avoid Twisted reactor restart issues."""
+    try:
+        # Get the main project directory (parent of app_predictor)
+        main_dir = os.path.dirname(os.path.dirname(__file__))
+        result = subprocess.run(
+            [sys.executable, '-c', 
+            'from app_predictor.get_upcoming_event import scrape_upcoming_events; scrape_upcoming_events()'],
+            cwd=main_dir,
+            capture_output=False
+        )
+        if result.returncode == 0:
+            return "data/upcoming_events.csv"
+        else:
+            print("Error: Scraper failed. Check the output above.")
+            return None
+    except Exception as e:
+        print(f"Error running scraper: {e}")
+        return None
+
 def main():
     pipeline = UFCPredictionPipeline()
     #output_path = "data/predictions_upcoming.csv"
@@ -139,12 +118,15 @@ def main():
         if choice == '1':
             print("Scraping upcoming event data...")
             output_path = "data/predictions_upcoming.csv"
-            file_path = scrape_upcoming_event()
-            # Pass the file path to the pipeline
-            pipeline.run_batch_pipeline(file_path, output_path)
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            print(f"Predictions saved to {output_path}")
+            file_path = run_scraper_in_subprocess()
+            if file_path:
+                # Pass the file path to the pipeline
+                pipeline.run_batch_pipeline(file_path, output_path)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                print(f"Predictions saved to {output_path}")
+            else:
+                print("Scraping failed. Please try again.")
 
         elif choice == '2':
             latest_date = get_max_date()
