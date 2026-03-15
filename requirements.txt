@@ -16,4 +16,3 @@ flask
 flask_cors
 nvidia-ml-py
 mlflow
-test
